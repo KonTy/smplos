@@ -22,7 +22,7 @@
  * https://github.com/juliusHuelsmann/st-focus/
  * https://st.suckless.org/patches/alpha_focus_highlight/
  */
-#define ALPHA_FOCUS_HIGHLIGHT_PATCH 1
+#define ALPHA_FOCUS_HIGHLIGHT_PATCH 0
 
 /* Adds gradient transparency to st, depends on the alpha patch.
  * https://st.suckless.org/patches/gradient/
@@ -70,7 +70,7 @@
  * This patch makes bold text rendered simply as bold, leaving the color unaffected.
  * https://st.suckless.org/patches/bold-is-not-bright/
  */
-#define BOLD_IS_NOT_BRIGHT_PATCH 1
+#define BOLD_IS_NOT_BRIGHT_PATCH 0
 
 /* This patch adds custom rendering of lines/blocks/braille characters for gapless alignment.
  * https://st.suckless.org/patches/boxdraw/
@@ -122,7 +122,7 @@
  * While many terminal emulators do this it is not adhering to specification. xterm is an
  * example terminal that sets a blinking block instead of the configured one, same as st.
  */
-#define DEFAULT_CURSOR_PATCH 1
+#define DEFAULT_CURSOR_PATCH 0
 
 /* Return BS on pressing backspace and DEL on pressing the delete key.
  * https://st.suckless.org/patches/delkey/
@@ -239,7 +239,7 @@
  *
  * https://st.suckless.org/patches/keyboard_select/
  */
-#define KEYBOARDSELECT_PATCH 1
+#define KEYBOARDSELECT_PATCH 0
 
 /* This patch adds support for drawing ligatures using the Harfbuzz library to transform
  * original text of a single line to a list of glyphs with ligatures included.
@@ -249,7 +249,7 @@
  * https://github.com/cog1to/st-ligatures
  * https://st.suckless.org/patches/ligatures/
  */
-#define LIGATURES_PATCH 1
+#define LIGATURES_PATCH 0
 
 /* This patch makes st ignore terminal color attributes by forcing display of the default
  * foreground and background colors only - making for a monochrome look. Idea ref.
@@ -295,7 +295,7 @@
  * same CWD (current working directory) as the original st instance.
  * https://st.suckless.org/patches/newterm/
  */
-#define NEWTERM_PATCH 0
+#define NEWTERM_PATCH 1
 
 /* This patch will set the _MOTIF_WM_HINTS property for the st window which, if the window manager
  * respects it, will show the st window without window decorations.
@@ -335,14 +335,14 @@
  *
  * https://codeberg.org/dnkl/foot#jumping-between-prompts
  */
-#define OSC133_PATCH 1
+#define OSC133_PATCH 0
 
 /* Reflow.
  * Allows st to be resized without cutting off text when the terminal window is made larger again.
  * Text wraps when the terminal window is made smaller.
  * Comes with scrollback.
  */
-#define REFLOW_PATCH 1
+#define REFLOW_PATCH 0
 
 /* This patch allows you to specify a border that is relative in size to the width of a cell
  * in the terminal.
@@ -359,26 +359,26 @@
 /* Scroll back through terminal output using Shift+{PageUp, PageDown}.
  * https://st.suckless.org/patches/scrollback/
  */
-#define SCROLLBACK_PATCH 0
+#define SCROLLBACK_PATCH 1
 
 /* Scroll back through terminal output using Shift+MouseWheel.
  * This variant depends on SCROLLBACK_PATCH being enabled.
  * https://st.suckless.org/patches/scrollback/
  */
-#define SCROLLBACK_MOUSE_PATCH 0
+#define SCROLLBACK_MOUSE_PATCH 1
 
 /* Scroll back through terminal output using MouseWheel when in alt screen (e.g. less or vim).
  * This variant depends on SCROLLBACK_PATCH being enabled.
  * https://st.suckless.org/patches/scrollback/
  */
-#define SCROLLBACK_MOUSE_ALTSCREEN_PATCH 0
+#define SCROLLBACK_MOUSE_ALTSCREEN_PATCH 1
 
 /* This patch adds the two color-settings selectionfg and selectionbg to config.def.h.
  * Those define the fore- and background colors which are used when text on the screen is selected
  * with the mouse. This removes the default behaviour which would simply reverse the colors.
  * https://st.suckless.org/patches/selectioncolors/
  */
-#define SELECTION_COLORS_PATCH 0
+#define SELECTION_COLORS_PATCH 1
 
 /* This patch works with selectioncolors and alpha patches to make selection
  * background color transparent.
@@ -500,7 +500,7 @@
  * https://github.com/Dreomite/st/commit/e3b821dcb3511d60341dec35ee05a4a0abfef7f2
  * https://www.reddit.com/r/suckless/comments/jt90ai/update_support_for_proper_glyph_rendering_in_st/
  */
-#define WIDE_GLYPHS_PATCH 1
+#define WIDE_GLYPHS_PATCH 0
 
 /* There is a known issue that Google's Variable Fonts (VF) can end up with letter spacing
  * that is too wide in programs that use Xft, for example Inconsolata v3.000.
