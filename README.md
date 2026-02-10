@@ -24,6 +24,19 @@ It draws inspiration from projects like [Omarchy](https://omakub.org/) but takes
 - **One UI toolkit.** EWW powers the bar, widgets, and dialogs. It runs on both X11 and Wayland. No waybar, no polybar, no redundant tools.
 - **14 built-in themes.** One command switches colors across the entire system — terminal, bar, notifications, borders, lock screen, and editor.
 
+### Design Decisions
+
+Every tool in smplOS was chosen to work across compositors — Wayland and X11 — so the OS feels identical regardless of which one you run.
+
+| Component | Choice | Why |
+|-----------|--------|-----|
+| **Bar & widgets** | EWW | GTK3-based — runs natively on both X11 and Wayland. One codebase for bar, launcher, theme picker, and keybind help. Replaces waybar, polybar, and rofi. |
+| **Launcher** | Rofi | Wayland fork (lbonn/rofi) and X11 original share the same config format and theming. One theme file, two backends. |
+| **Terminal** | st / st-wl | Suckless st has an X11 build and a Wayland port (marchaesen/st-wl). Same config.h, same patches, same look. Starts in ~5ms and uses ~4 MB of RAM — critical for staying under the 850 MB cold-boot target. |
+| **Notifications** | Dunst | Works on both X11 and Wayland with the same config. Lightweight, themeable, no dependencies on a specific compositor. |
+
+The rule is simple: if a tool only works on one display server, it doesn't ship in `src/shared/`. Compositor-specific code stays in `src/compositors/<name>/` and is kept as thin as possible.
+
 ### Editions
 
 smplOS ships in focused editions, each adding curated tools on top of the same minimal base:
@@ -108,7 +121,9 @@ cd release && ./test-iso.sh
 
 ## Themes
 
-14 built-in themes, each providing colors for all UI components:
+14 built-in themes, each providing colors for all UI components.
+
+Press <kbd>META</kbd> + <kbd>SHIFT</kbd> + <kbd>T</kbd> to open the theme picker and switch instantly.
 
 Catppuccin Mocha, Catppuccin Latte, Dracula, Gruvbox Dark, Gruvbox Light, Nord, One Dark, Rose Pine, Rose Pine Dawn, Solarized Dark, Solarized Light, Sweet, Tokyo Night, Tokyo Night Light.
 
