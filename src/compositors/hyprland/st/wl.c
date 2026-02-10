@@ -1950,6 +1950,13 @@ static void wldrawglyph(Glyph g, int x, int y)
 	wldrawCharacter(g, x, y);
 }
 
+#if REFLOW_PATCH && KEYBOARDSELECT_PATCH
+void xdrawglyph(Glyph g, int x, int y)
+{
+	wldrawglyph(g, x, y);
+}
+#endif // REFLOW_PATCH && KEYBOARDSELECT_PATCH
+
 static void wlloadcursor(void)
 {
 	char *names[] = { mouseshape, "xterm", "ibeam", "text" };
@@ -1963,7 +1970,11 @@ static void wlloadcursor(void)
 	cursor.surface = wl_compositor_create_surface(wl.cmp);
 }
 
+#if LIGATURES_PATCH
+void xdrawcursor(int cx, int cy, Glyph g, int ox, int oy, Glyph og, Line line, int len)
+#else
 void xdrawcursor(int cx, int cy, Glyph g, int ox, int oy, Glyph og)
+#endif // LIGATURES_PATCH
 {
 	uint32_t drawcol;
 
