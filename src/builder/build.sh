@@ -469,11 +469,18 @@ build_st() {
     fi
 
     install -Dm755 "$bin_name" "$airootfs/usr/local/bin/$bin_name"
-    strip "$airootfs/usr/local/bin/$bin_name"
+    # Only strip release builds; debug builds need symbols for crash analysis
+    if ! grep -q 'STWL_DEBUG' "$build_dir/config.mk"; then
+        strip "$airootfs/usr/local/bin/$bin_name"
+    else
+        log_info "Debug build detected, skipping strip"
+    fi
 
     # Also stage for the installer to deploy to the installed system
     install -Dm755 "$bin_name" "$airootfs/root/smplos/bin/$bin_name"
-    strip "$airootfs/root/smplos/bin/$bin_name"
+    if ! grep -q 'STWL_DEBUG' "$build_dir/config.mk"; then
+        strip "$airootfs/root/smplos/bin/$bin_name"
+    fi
 
     # Install terminfo
     if [[ -f "$build_dir/${bin_name}.info" ]]; then

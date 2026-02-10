@@ -2184,36 +2184,60 @@ void
 regglobal(void *data, struct wl_registry *registry, uint32_t name,
 		const char *interface, uint32_t version)
 {
+#ifdef STWL_DEBUG
+	fprintf(stderr, "[st-wl-dbg] registry: iface=%s ver=%u name=%u\n", interface, version, name);
+#endif
 	if (strcmp(interface, "wl_compositor") == 0)
   {
 		wl.cmp = wl_registry_bind(registry, name, &wl_compositor_interface, 3);
+#ifdef STWL_DEBUG
+		fprintf(stderr, "[st-wl-dbg]   -> bound wl_compositor\n");
+#endif
 	}
   else if (strcmp(interface, "xdg_wm_base") == 0)
   {
 		wl.wm = wl_registry_bind(registry, name, &xdg_wm_base_interface, 1);
 		xdg_wm_base_add_listener(wl.wm, &wmlistener, NULL);
+#ifdef STWL_DEBUG
+		fprintf(stderr, "[st-wl-dbg]   -> bound xdg_wm_base\n");
+#endif
 	}
   else if (strcmp(interface, "wl_shm") == 0)
   {
 		wl.shm = wl_registry_bind(registry, name, &wl_shm_interface, 1);
+#ifdef STWL_DEBUG
+		fprintf(stderr, "[st-wl-dbg]   -> bound wl_shm\n");
+#endif
 	}
   else if (strcmp(interface, "wl_seat") == 0)
   {
 		wl.seat = wl_registry_bind(registry, name, &wl_seat_interface, 4);
+#ifdef STWL_DEBUG
+		fprintf(stderr, "[st-wl-dbg]   -> bound wl_seat\n");
+#endif
 	}
   else if (strcmp(interface, "wl_data_device_manager") == 0)
   {
 		wl.datadevmanager = wl_registry_bind(registry, name,
 				&wl_data_device_manager_interface, 1);
+#ifdef STWL_DEBUG
+		fprintf(stderr, "[st-wl-dbg]   -> bound wl_data_device_manager\n");
+#endif
 	}
   else if (strcmp(interface, "wl_output") == 0)
   {
 		/* bind to outputs so we can get surface enter events */
 		wl_registry_bind(registry, name, &wl_output_interface, 2);
+#ifdef STWL_DEBUG
+		fprintf(stderr, "[st-wl-dbg]   -> bound wl_output\n");
+#endif
 	}
   else if (strcmp(interface, "zxdg_decoration_manager_v1") == 0)
   {
 		wl.decoration_manager=wl_registry_bind(registry, name, &zxdg_decoration_manager_v1_interface, 1);
+#ifdef STWL_DEBUG
+		fprintf(stderr, "[st-wl-dbg]   -> bound zxdg_decoration_manager_v1\n");
+#endif
   }
 }
 
@@ -2301,18 +2325,42 @@ wlinit(int cols, int rows)
 {
 	struct wl_registry *registry;
 
+#ifdef STWL_DEBUG
+	fprintf(stderr, "[st-wl-dbg] wlinit: connecting to Wayland display...\n");
+	fprintf(stderr, "[st-wl-dbg] wlinit: WAYLAND_DISPLAY=%s\n", getenv("WAYLAND_DISPLAY") ? getenv("WAYLAND_DISPLAY") : "(null)");
+	fprintf(stderr, "[st-wl-dbg] wlinit: XDG_RUNTIME_DIR=%s\n", getenv("XDG_RUNTIME_DIR") ? getenv("XDG_RUNTIME_DIR") : "(null)");
+#endif
 	if (!(wl.dpy = wl_display_connect(NULL)))
 		die("Can't open display\n");
+#ifdef STWL_DEBUG
+	fprintf(stderr, "[st-wl-dbg] wlinit: connected to Wayland display OK\n");
+#endif
 
 	wl.needdraw = true;
   wl.resized = true;
 	registry = wl_display_get_registry(wl.dpy);
 	wl_registry_add_listener(registry, &reglistener, NULL);
+#ifdef STWL_DEBUG
+	fprintf(stderr, "[st-wl-dbg] wlinit: creating wld context...\n");
+#endif
 	wld.ctx = wld_wayland_create_context(wl.dpy);
+#ifdef STWL_DEBUG
+	fprintf(stderr, "[st-wl-dbg] wlinit: wld context=%p\n", (void*)wld.ctx);
+#endif
 	wld.renderer = wld_create_renderer(wld.ctx);
+#ifdef STWL_DEBUG
+	fprintf(stderr, "[st-wl-dbg] wlinit: wld renderer=%p\n", (void*)wld.renderer);
+	fprintf(stderr, "[st-wl-dbg] wlinit: roundtrip to discover globals...\n");
+#endif
 
 	wl_display_roundtrip(wl.dpy);
 
+#ifdef STWL_DEBUG
+	fprintf(stderr, "[st-wl-dbg] wlinit: roundtrip done. checking globals:\n");
+	fprintf(stderr, "[st-wl-dbg]   shm=%p seat=%p wm=%p cmp=%p ddm=%p decor=%p\n",
+		(void*)wl.shm, (void*)wl.seat, (void*)wl.wm, (void*)wl.cmp,
+		(void*)wl.datadevmanager, (void*)wl.decoration_manager);
+#endif
 	if (!wl.shm)
 		die("Display has no SHM\n");
 	if (!wl.seat)
@@ -2324,6 +2372,9 @@ wlinit(int cols, int rows)
 	if (!wl.decoration_manager)
 		DEBUGPRNT("# Display has no decoration manager\n");
 
+#ifdef STWL_DEBUG
+	fprintf(stderr, "[st-wl-dbg] wlinit: getting keyboard and pointer...\n");
+#endif
 	wl.keyboard = wl_seat_get_keyboard(wl.seat);
 	wl_keyboard_add_listener(wl.keyboard, &kbdlistener, NULL);
 	wl.pointer = wl_seat_get_pointer(wl.seat);
@@ -2333,15 +2384,31 @@ wlinit(int cols, int rows)
 	wl_data_device_add_listener(wl.datadev, &datadevlistener, NULL);
 
 	/* font */
+#ifdef STWL_DEBUG
+	fprintf(stderr, "[st-wl-dbg] wlinit: initializing fontconfig...\n");
+#endif
 	if (!FcInit())
 		die("Could not init fontconfig.\n");
 
 	usedfont = opt_font;
 	wld.fontctx = wld_font_create_context();
+#ifdef STWL_DEBUG
+	fprintf(stderr, "[st-wl-dbg] wlinit: loading fonts (font=%s size=%d)...\n",
+		usedfont ? usedfont : "(default)", DEFAULTFONTSIZE);
+#endif
 	wlloadfonts(usedfont, DEFAULTFONTSIZE);
 
+#ifdef STWL_DEBUG
+	fprintf(stderr, "[st-wl-dbg] wlinit: fonts loaded OK (cw=%d ch=%d)\n", win.cw, win.ch);
+#endif
 	xloadcols();
+#ifdef STWL_DEBUG
+	fprintf(stderr, "[st-wl-dbg] wlinit: colors loaded OK\n");
+#endif
 	wlloadcursor();
+#ifdef STWL_DEBUG
+	fprintf(stderr, "[st-wl-dbg] wlinit: cursor loaded OK\n");
+#endif
 
 	/* adjust fixed window geometry */
 	#if ANYGEOMETRY_PATCH
@@ -2370,6 +2437,9 @@ wlinit(int cols, int rows)
 	win.h = 2 * borderpx + rows * win.ch;
 	#endif // ANYGEOMETRY_PATCH | ANYSIZE_PATCH
 
+#ifdef STWL_DEBUG
+	fprintf(stderr, "[st-wl-dbg] wlinit: creating Wayland surface (win %dx%d)...\n", win.w, win.h);
+#endif
 	wl.surface = wl_compositor_create_surface(wl.cmp);
 	wl_surface_add_listener(wl.surface, &surflistener, NULL);
 
@@ -2378,6 +2448,9 @@ wlinit(int cols, int rows)
 	wl.xdgtoplevel = xdg_surface_get_toplevel(wl.xdgsurface);
 	xdg_toplevel_add_listener(wl.xdgtoplevel, &xdgtoplevellistener, NULL);
 	xdg_toplevel_set_app_id(wl.xdgtoplevel, opt_class ? opt_class : termclass);
+#ifdef STWL_DEBUG
+	fprintf(stderr, "[st-wl-dbg] wlinit: xdg surface + toplevel created OK\n");
+#endif
 
 #if !NO_WINDOW_DECORATIONS_PATCH
   if (wl.decoration_manager)
@@ -2399,6 +2472,9 @@ wlinit(int cols, int rows)
 //	wlsel.tclick2 = 0;
 //	wlsel.primary = NULL;
 //	wlsel.source = NULL;
+#ifdef STWL_DEBUG
+	fprintf(stderr, "[st-wl-dbg] wlinit: COMPLETE\n");
+#endif
 }
 
 void
@@ -2411,14 +2487,30 @@ run(void)
 	struct timespec drawtimeout, now, lastblink, trigger;
 	long timeout;
 
+#ifdef STWL_DEBUG
+	fprintf(stderr, "[st-wl-dbg] run: initial roundtrip...\n");
+#endif
 	/* Look for initial configure. */
 	wl_display_roundtrip(wl.dpy);
+#ifdef STWL_DEBUG
+	fprintf(stderr, "[st-wl-dbg] run: spawning shell (ttynew)...\n");
+	fprintf(stderr, "[st-wl-dbg] run: shell=%s opt_line=%s opt_cmd=%p\n",
+		shell ? shell : "(null)", opt_line ? opt_line : "(null)", (void*)opt_cmd);
+#endif
 	ttyfd = ttynew(opt_line, shell, opt_io, opt_cmd);
+#ifdef STWL_DEBUG
+	fprintf(stderr, "[st-wl-dbg] run: ttynew returned fd=%d\n", ttyfd);
+	fprintf(stderr, "[st-wl-dbg] run: cresize(%d, %d)...\n", win.w, win.h);
+#endif
 	cresize(win.w, win.h);
 
 	if (!(IS_SET(MODE_VISIBLE)))
 		win.mode |= MODE_VISIBLE;
 
+#ifdef STWL_DEBUG
+	fprintf(stderr, "[st-wl-dbg] run: entering main event loop (wlfd=%d ttyfd=%d)\n", wlfd, ttyfd);
+	fprintf(stderr, "[st-wl-dbg] run: ============ STARTUP COMPLETE ============\n");
+#endif
 	clock_gettime(CLOCK_MONOTONIC, &lastblink);
 
 	drawtimeout.tv_sec = 0;
@@ -2619,6 +2711,13 @@ usage(void)
 int
 main(int argc, char *argv[])
 {
+#ifdef STWL_DEBUG
+	fprintf(stderr, "[st-wl-dbg] main: st-wl " VERSION " starting (debug build)\n");
+	fprintf(stderr, "[st-wl-dbg] main: uid=%d euid=%d pid=%d\n", getuid(), geteuid(), getpid());
+	fprintf(stderr, "[st-wl-dbg] main: TERM=%s\n", getenv("TERM") ? getenv("TERM") : "(null)");
+	fprintf(stderr, "[st-wl-dbg] main: HOME=%s\n", getenv("HOME") ? getenv("HOME") : "(null)");
+	fprintf(stderr, "[st-wl-dbg] main: SHELL=%s\n", getenv("SHELL") ? getenv("SHELL") : "(null)");
+#endif
 	// ignore broken pipe signal, happens a lot in the datasrcsend function....
 	sigaction(SIGPIPE, &(struct sigaction){SIG_IGN}, NULL);
 	#if BLINKING_CURSOR_PATCH
@@ -2679,9 +2778,21 @@ run:
 	setlocale(LC_CTYPE, "");
 	cols = MAX(cols, 1);
 	rows = MAX(rows, 1);
+#ifdef STWL_DEBUG
+	fprintf(stderr, "[st-wl-dbg] main: tnew(%d, %d)...\n", cols, rows);
+#endif
 	tnew(cols, rows);
+#ifdef STWL_DEBUG
+	fprintf(stderr, "[st-wl-dbg] main: wlinit(%d, %d)...\n", cols, rows);
+#endif
 	wlinit(cols, rows);
+#ifdef STWL_DEBUG
+	fprintf(stderr, "[st-wl-dbg] main: selinit()...\n");
+#endif
 	selinit();
+#ifdef STWL_DEBUG
+	fprintf(stderr, "[st-wl-dbg] main: run()...\n");
+#endif
 	run();
 
 	return 0;

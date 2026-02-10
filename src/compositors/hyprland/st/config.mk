@@ -1,5 +1,6 @@
 # st version
-VERSION = 0.9.3-fix6
+VERSION = 0.9.3-debug1
+DEBUGFLAGS = -g -O0 -DSTWL_DEBUG
 
 # Customize below to fit your system
 
