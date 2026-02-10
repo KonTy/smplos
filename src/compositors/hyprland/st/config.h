@@ -423,8 +423,8 @@ static Shortcut shortcuts[] = {
 	{ TERMMOD,              XKB_KEY_X,           invert,          { 0 } },
 	#endif // INVERT_PATCH
 	#if OSC133_PATCH
-	{ MOD_MASK_CTRL,          XKB_KEY_Page_Up,     scrolltoprompt,  {.i = -1}, S_PRI },
-	{ MOD_MASK_CTRL,          XKB_KEY_Page_Down,   scrolltoprompt,  {.i =  1}, S_PRI },
+	{ MOD_MASK_CTRL,          XKB_KEY_Page_Up,     scrolltoprompt,  {.i = -1} },
+	{ MOD_MASK_CTRL,          XKB_KEY_Page_Down,   scrolltoprompt,  {.i =  1} },
 	#endif // OSC133_PATCH
 };
 
