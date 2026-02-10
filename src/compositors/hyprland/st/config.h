@@ -6,13 +6,13 @@
  * font: see http://freedesktop.org/software/fontconfig/fontconfig-user.html
  */
 
-#define DEFAULTFONTSIZE 13
+#define DEFAULTFONTSIZE 14
 
 #if FONT2_PATCH
-/* Spare fonts */
+/* Spare fonts - tried in order for glyphs missing from the primary font */
 static char *font2[] = {
-/*	"Inconsolata for Powerline:pixelsize=12:antialias=true:autohint=true", */
-/*	"Hack Nerd Font Mono:pixelsize=11:antialias=true:autohint=true", */
+	"Noto Color Emoji:pixelsize=14:antialias=true:autohint=true",
+	"Symbols Nerd Font:pixelsize=14:antialias=true:autohint=true",
 };
 #endif // FONT2_PATCH
 
@@ -323,23 +323,23 @@ static Axiskey ashortcuts[] = {
 	{ ControlMask,          Button2, selopen,        {.i = 0},      1 },
 	#endif // OPEN_SELECTED_TEXT_PATCH
 	#if SCROLLBACK_MOUSE_PATCH
-	{ MOD_MASK_SHIFT, AXIS_VERTICAL, +1, kscrollup   , {.i = 1}, S_PRI},
-	{ MOD_MASK_SHIFT, AXIS_VERTICAL, -1, kscrolldown , {.i = 1}, S_PRI},
+	{ MOD_MASK_SHIFT, AXIS_VERTICAL, -1, kscrollup   , {.i = 1}, S_PRI},
+	{ MOD_MASK_SHIFT, AXIS_VERTICAL, +1, kscrolldown , {.i = 1}, S_PRI},
 	#elif UNIVERSCROLL_PATCH
-	{ MOD_MASK_ANY, AXIS_VERTICAL,   +1, ttysend, {.s = "\033[5;2~"}, S_PRI},
-	{ MOD_MASK_ANY, AXIS_VERTICAL,   -1, ttysend, {.s = "\033[6;2~"}, S_PRI},
+	{ MOD_MASK_ANY, AXIS_VERTICAL,   -1, ttysend, {.s = "\033[5;2~"}, S_PRI},
+	{ MOD_MASK_ANY, AXIS_VERTICAL,   +1, ttysend, {.s = "\033[6;2~"}, S_PRI},
 	#else
-	{ MOD_MASK_SHIFT, AXIS_VERTICAL, +1, ttysend, {.s = "\033[5;2~"} },
-	{ MOD_MASK_SHIFT, AXIS_VERTICAL, -1, ttysend, {.s = "\033[6;2~"} },
+	{ MOD_MASK_SHIFT, AXIS_VERTICAL, -1, ttysend, {.s = "\033[5;2~"} },
+	{ MOD_MASK_SHIFT, AXIS_VERTICAL, +1, ttysend, {.s = "\033[6;2~"} },
 	#endif // SCROLLBACK_MOUSE_PATCH
 	#if SCROLLBACK_MOUSE_ALTSCREEN_PATCH || REFLOW_PATCH
-	{ MOD_MASK_ANY, AXIS_VERTICAL,   +1, kscrollup,   {.i = 1}, S_PRI},
-	{ MOD_MASK_ANY, AXIS_VERTICAL,   -1, kscrolldown, {.i = 1}, S_PRI},
-	{ MOD_MASK_ANY, AXIS_VERTICAL,   +1, ttysend, {.s = "\031"}, S_ALT},
-	{ MOD_MASK_ANY, AXIS_VERTICAL,   -1, ttysend, {.s = "\005"}, S_ALT},
+	{ MOD_MASK_ANY, AXIS_VERTICAL,   -1, kscrollup,   {.i = 1}, S_PRI},
+	{ MOD_MASK_ANY, AXIS_VERTICAL,   +1, kscrolldown, {.i = 1}, S_PRI},
+	{ MOD_MASK_ANY, AXIS_VERTICAL,   -1, ttysend, {.s = "\031"}, S_ALT},
+	{ MOD_MASK_ANY, AXIS_VERTICAL,   +1, ttysend, {.s = "\005"}, S_ALT},
 	#else
-	{ MOD_MASK_ANY, AXIS_VERTICAL,   +1, ttysend, {.s = "\031"}},
-	{ MOD_MASK_ANY, AXIS_VERTICAL,   -1, ttysend, {.s = "\005"}},
+	{ MOD_MASK_ANY, AXIS_VERTICAL,   -1, ttysend, {.s = "\031"}},
+	{ MOD_MASK_ANY, AXIS_VERTICAL,   +1, ttysend, {.s = "\005"}},
 	#endif // SCROLLBACK_MOUSE_ALTSCREEN_PATCH
 };
 

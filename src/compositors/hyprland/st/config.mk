@@ -1,6 +1,8 @@
 # st version
-VERSION = 0.9.3-debug1
-DEBUGFLAGS = -g -O0 -DSTWL_DEBUG
+VERSION = 0.9.3
+
+# Uncomment for debug builds (adds fprintf tracing, disables strip)
+# DEBUGFLAGS = -g -O0 -DSTWL_DEBUG
 
 # Customize below to fit your system
 
@@ -39,11 +41,12 @@ LIBS = -L/usr/lib -lc -lm -lutil `$(PKG_CONFIG) --libs ${PKGCFG}`\
        `$(PKG_CONFIG) --libs fontconfig` \
        `$(PKG_CONFIG) --libs freetype2` \
        $(LIGATURES_LIBS) \
+       $(SIXEL_LIBS) \
        $(NETWMICON_LIBS)
 
 # flags
 STCPPFLAGS = -DVERSION=\"$(VERSION)\" -DICON=\"$(ICONPREFIX)/$(ICONNAME)\" -D_XOPEN_SOURCE=700
-STCFLAGS = $(DEBUGFLAGS) $(INCS) $(STCPPFLAGS) $(CPPFLAGS) $(CFLAGS)
+STCFLAGS = $(DEBUGFLAGS) -O2 $(INCS) $(STCPPFLAGS) $(CPPFLAGS) $(CFLAGS)
 STLDFLAGS = wld/libwld.a $(LIBS) $(LDFLAGS)
 
 # OpenBSD:
