@@ -540,7 +540,6 @@ ptrbutton(void * data, struct wl_pointer * pointer, uint32_t serial,
 	      clippaste(NULL);
 	#else
 				wlselpaste();
-	{ BTN_MIDDLE, MOD_MASK_ANY, "", selpaste},
 	#endif // CLIPBOARD_PATCH
 			} else if (button == BTN_LEFT) {
 				wl.globalserial = serial;

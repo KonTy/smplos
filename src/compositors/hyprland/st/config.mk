@@ -1,5 +1,5 @@
 # st version
-VERSION = 0.9.3-fix4
+VERSION = 0.9.3-fix6
 
 # Customize below to fit your system
 

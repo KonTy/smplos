@@ -37,6 +37,7 @@ Usage: build-iso.sh [OPTIONS]
 Options:
     -c, --compositor NAME   Compositor to build (hyprland, dwm) [default: hyprland]
     -e, --edition NAME      Edition variant (lite, creators) [optional]
+    -r, --release           Release build: max xz compression (slow, ~2h, smallest ISO)
     -n, --no-cache          Don't use package cache
     -v, --verbose           Verbose output
     --skip-aur              Skip building AUR packages
@@ -54,6 +55,7 @@ Examples:
     ./build-iso.sh                        # Build with all package sources
     ./build-iso.sh --skip-aur             # Skip AUR (faster build)
     ./build-iso.sh -c hyprland -e lite    # Build Hyprland Lite edition
+    ./build-iso.sh --release              # Max compression for GitHub release
 HELPEOF
 }
 
@@ -63,6 +65,7 @@ HELPEOF
 
 COMPOSITOR="hyprland"
 EDITION=""
+RELEASE=""
 NO_CACHE=""
 VERBOSE=""
 SKIP_AUR=""
@@ -79,6 +82,10 @@ parse_args() {
             -e|--edition)
                 EDITION="$2"
                 shift 2
+                ;;
+            -r|--release)
+                RELEASE="1"
+                shift
                 ;;
             -n|--no-cache)
                 NO_CACHE="1"
@@ -214,6 +221,7 @@ run_build() {
     log_step "Starting smplOS ISO build in Docker container"
     log_info "Compositor: $COMPOSITOR"
     [[ -n "$EDITION" ]] && log_info "Edition: $EDITION"
+    [[ -n "$RELEASE" ]] && log_info "Release mode: max xz compression (this will be slow)"
     [[ -n "$SKIP_AUR" ]] && log_info "Skipping: AUR packages"
     [[ -n "$SKIP_FLATPAK" ]] && log_info "Skipping: Flatpak packages"
     [[ -n "$SKIP_APPIMAGE" ]] && log_info "Skipping: AppImages"
@@ -237,7 +245,7 @@ run_build() {
         -v "$SCRIPT_DIR:/build/src:ro"
         -v "$release_dir:/build/release"
         -v "$cache_dir/pacman:/var/cache/pacman/pkg"
-        -v "$cache_dir/offline-repo:/build/offline-repo"
+        -v "$cache_dir/offline-repo:/var/cache/smplos/mirror/offline"
         -e "COMPOSITOR=$COMPOSITOR"
     )
     
@@ -248,8 +256,12 @@ run_build() {
     fi
     
     [[ -n "$EDITION" ]] && docker_args+=(-e "EDITION=$EDITION")
+    [[ -n "$RELEASE" ]] && docker_args+=(-e "RELEASE=1")
     [[ -n "$NO_CACHE" ]] && docker_args+=(-e "NO_CACHE=1")
     [[ -n "$VERBOSE" ]] && docker_args+=(-e "VERBOSE=1")
+    
+    # Pass host UID/GID so output files are owned by the user, not root
+    docker_args+=(-e "HOST_UID=$(id -u)" -e "HOST_GID=$(id -g)")
     [[ -n "$SKIP_AUR" ]] && docker_args+=(-e "SKIP_AUR=1")
     [[ -n "$SKIP_FLATPAK" ]] && docker_args+=(-e "SKIP_FLATPAK=1")
     [[ -n "$SKIP_APPIMAGE" ]] && docker_args+=(-e "SKIP_APPIMAGE=1")

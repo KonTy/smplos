@@ -1,6 +1,4 @@
 *.o
-config.h
-patches.h
 st-wl
 xdg-shell-protocol.c
 compile_commands.json

@@ -21,9 +21,10 @@ xdg-decoration-protocol.c
 xdg-decoration-protocol.h
 
 # ── st/st-wl generated config ──────────────────────────────
-config.h
-patches.h
+# config.h and patches.h are tracked for st-wl (our customizations)
+# but the 'options' file is build-generated junk
 options
+*.h.bak
 
 # ── Release / VM testing (large files) ──────────────────────
 release/*.qcow2

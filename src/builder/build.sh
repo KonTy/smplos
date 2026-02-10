@@ -26,6 +26,8 @@ VERBOSE="${VERBOSE:-}"
 SKIP_AUR="${SKIP_AUR:-}"
 SKIP_FLATPAK="${SKIP_FLATPAK:-}"
 SKIP_APPIMAGE="${SKIP_APPIMAGE:-}"
+RELEASE="${RELEASE:-}"
+NO_CACHE="${NO_CACHE:-}"
 
 # ISO metadata
 ISO_NAME="smplos"
@@ -202,6 +204,12 @@ setup_profile() {
 download_packages() {
     log_step "Downloading packages to offline mirror"
     
+    # If --no-cache was passed, wipe the offline mirror to force fresh downloads
+    if [[ -n "$NO_CACHE" ]]; then
+        log_warn "--no-cache: clearing offline mirror (full re-download)"
+        rm -rf "$OFFLINE_MIRROR_DIR"/*
+    fi
+    
     # Get packages from the base releng packages.x86_64
     local releng_packages=()
     while IFS= read -r line; do
@@ -215,17 +223,29 @@ download_packages() {
     # Remove duplicates
     all_download_packages=($(printf '%s\n' "${all_download_packages[@]}" | sort -u))
     
-    log_info "Downloading ${#all_download_packages[@]} packages to offline mirror..."
+    # Count existing cached packages
+    local cached_count=0
+    cached_count=$(find "$OFFLINE_MIRROR_DIR" -name '*.pkg.tar.*' ! -name '*.sig' 2>/dev/null | wc -l)
+    log_info "Cached packages: $cached_count, requested: ${#all_download_packages[@]}"
     
-    # Create a temporary db path for downloading
+    # pacman -Syw skips packages already present in --cachedir,
+    # so only new/updated packages are actually downloaded
     mkdir -p /tmp/offlinedb
-    
-    # Download all packages to the offline mirror
+    pacman --noconfirm -Sy --dbpath /tmp/offlinedb
     pacman --noconfirm -Syw "${all_download_packages[@]}" \
         --cachedir "$OFFLINE_MIRROR_DIR/" \
         --dbpath /tmp/offlinedb
     
-    log_info "Packages downloaded"
+    local new_count
+    new_count=$(find "$OFFLINE_MIRROR_DIR" -name '*.pkg.tar.*' ! -name '*.sig' 2>/dev/null | wc -l)
+    log_info "Packages after sync: $new_count (downloaded $((new_count - cached_count)) new)"
+    
+    # Clean stale package versions: if foo-1.0 and foo-1.1 both exist, remove foo-1.0
+    # paccache keeps only the latest version per package (-rk1), matching our cachedir
+    if command -v paccache &>/dev/null; then
+        log_info "Cleaning stale package versions..."
+        paccache -rk1 -c "$OFFLINE_MIRROR_DIR" 2>/dev/null || true
+    fi
 }
 
 ###############################################################################
@@ -382,7 +402,11 @@ bootmodes=('bios.syslinux.mbr' 'bios.syslinux.eltorito'
 arch="x86_64"
 pacman_conf="pacman.conf"
 airootfs_image_type="squashfs"
-airootfs_image_tool_options=('-comp' 'zstd' '-Xcompression-level' '15' '-b' '1M')
+$(if [[ -n "$RELEASE" ]]; then
+    echo "airootfs_image_tool_options=('-comp' 'xz' '-Xbcj' 'x86' '-Xdict-size' '1M' '-b' '1M')"
+else
+    echo "airootfs_image_tool_options=('-comp' 'zstd' '-Xcompression-level' '15' '-b' '1M')"
+fi)
 bootstrap_tarball_compression=('zstd' '-c' '-T0' '--auto-threads=logical' '--long' '-19')
 file_permissions=(
   ["/etc/shadow"]="0:0:400"
@@ -428,7 +452,10 @@ build_st() {
     cd "$build_dir"
 
     log_info "Compiling st ($COMPOSITOR)..."
-    # Ensure config.h and patches.h are newer than .def.h so Make doesn't overwrite them
+    # Ensure config.h and patches.h exist (shipped in source tree) and are newer
+    # than .def.h so Make doesn't overwrite them with defaults
+    [[ -f "$build_dir/config.h" ]]  || cp "$build_dir/config.def.h" "$build_dir/config.h"
+    [[ -f "$build_dir/patches.h" ]] || cp "$build_dir/patches.def.h" "$build_dir/patches.h"
     sleep 0.1
     touch "$build_dir/config.h" "$build_dir/patches.h"
     make -j"$(nproc)"
@@ -961,6 +988,7 @@ main() {
     log_info "=================="
     log_info "Compositor: $COMPOSITOR"
     [[ -n "$EDITION" ]] && log_info "Edition: $EDITION"
+    [[ -n "$RELEASE" ]] && log_info "Release mode: max xz compression"
     [[ -n "$SKIP_AUR" ]] && log_info "AUR: disabled"
     [[ -n "$SKIP_FLATPAK" ]] && log_info "Flatpak: disabled"
     [[ -n "$SKIP_APPIMAGE" ]] && log_info "AppImage: disabled"
