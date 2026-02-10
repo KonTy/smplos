@@ -398,7 +398,7 @@ kscrolldown(const Arg* a)
 		return;
 
 	if (n < 0)
-		n = MAX(term.row / -n, 1);
+		n = MAX(term.row * -n / 100, 1);
 
 	if (n <= term.scr) {
 		term.scr -= n;
@@ -430,7 +430,7 @@ kscrollup(const Arg* a)
 		return;
 
 	if (n < 0)
-		n = MAX(term.row / -n, 1);
+		n = MAX(term.row * -n / 100, 1);
 
 	if (term.scr + n <= term.histf) {
 		term.scr += n;
