@@ -11,3 +11,4 @@ $theme-red: {{ color1 }};
 $theme-yellow: {{ color3 }};
 $theme-orange: {{ color3 }};
 $theme-cyan: {{ color6 }};
+$theme-popup-opacity: {{ popup_opacity }};

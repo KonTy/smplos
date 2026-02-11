@@ -48,10 +48,21 @@ if [[ -f "$CURRENT_THEME_PATH/eww-colors.scss" ]]; then
   cp "$CURRENT_THEME_PATH/eww-colors.scss" "$HOME/.config/eww/theme-colors.scss"
 fi
 
-# Link kitty theme colors
-if [[ -f "$CURRENT_THEME_PATH/kitty.conf" ]]; then
-  mkdir -p "$HOME/.config/kitty"
-  cp "$CURRENT_THEME_PATH/kitty.conf" "$HOME/.config/kitty/theme.conf"
+# Bake theme colors into SVG icon templates
+# Templates in icons/status/ have {{accent}} and {{fg-dim}} placeholders
+# We re-copy from source and replace with actual hex values each theme switch
+_accent=$(grep '^accent' "$CURRENT_THEME_PATH/colors.toml" 2>/dev/null | head -1 | sed 's/.*"\(#[^"]*\)".*/\1/')
+_fg=$(grep '^foreground' "$CURRENT_THEME_PATH/colors.toml" 2>/dev/null | head -1 | sed 's/.*"\(#[^"]*\)".*/\1/')
+_fg=${_fg:-#888888}
+_accent=${_accent:-#888888}
+EWW_ICONS_TPL="$HOME/.local/share/smplos/icons/status"
+EWW_ICONS_DST="$HOME/.config/eww/icons/status"
+if [[ -d "$EWW_ICONS_TPL" ]]; then
+  mkdir -p "$EWW_ICONS_DST"
+  for svg in "$EWW_ICONS_TPL"/*.svg; do
+    [[ -f "$svg" ]] || continue
+    sed "s/{{accent}}/$_accent/g; s/{{fg}}/$_fg/g" "$svg" > "$EWW_ICONS_DST/$(basename "$svg")"
+  done
 fi
 
 # Compositor-specific theme configs
@@ -115,17 +126,14 @@ theme-bg-next
 if pgrep -x eww >/dev/null; then
   eww --config "$HOME/.config/eww" kill 2>/dev/null
   sleep 0.3
+  killall -9 eww 2>/dev/null  # ensure no zombies
+  sleep 0.2
   bar-ctl start &
 fi
 
 # Hyprland (reload config to pick up new border colors -- runtime only)
 if [[ -n "${WAYLAND_DISPLAY:-}" ]] && command -v hyprctl &>/dev/null; then
   hyprctl reload 2>/dev/null
-fi
-
-# Kitty — SIGUSR1 triggers live config reload (no restart needed)
-if pgrep -x kitty >/dev/null; then
-  killall -SIGUSR1 kitty 2>/dev/null
 fi
 
 # st / st-wl -- apply colors via OSC escape sequences to all running instances
@@ -201,21 +209,53 @@ if [[ -f "$CURRENT_THEME_PATH/vscode.json" ]]; then
   _set_vscode_theme "cursor" "$HOME/.config/Cursor/User/settings.json"
 fi
 
-# Chromium / Brave -- set browser toolbar color via managed policy
+# Chromium / Brave -- set browser toolbar color and dark/light mode
 # Derives color from colors.toml background (no separate chromium.theme file needed)
 BROWSER_BG=$(grep '^background' "$CURRENT_THEME_PATH/colors.toml" 2>/dev/null | head -1 | sed 's/.*"\(#[^"]*\)".*/\1/')
 if [[ -n "$BROWSER_BG" ]]; then
-  BROWSER_POLICY="{\"BrowserThemeColor\": \"$BROWSER_BG\"}"
-  if command -v chromium &>/dev/null; then
-    sudo mkdir -p /etc/chromium/policies/managed 2>/dev/null
-    echo "$BROWSER_POLICY" | sudo tee /etc/chromium/policies/managed/color.json >/dev/null 2>&1
-    chromium --refresh-platform-policy >/dev/null 2>&1 || true
+  # Determine dark/light mode
+  if [[ -f "$CURRENT_THEME_PATH/light.mode" ]]; then
+    DARK_MODE=false
+  else
+    DARK_MODE=true
   fi
-  if command -v brave &>/dev/null; then
-    sudo mkdir -p /etc/brave/policies/managed 2>/dev/null
-    echo "$BROWSER_POLICY" | sudo tee /etc/brave/policies/managed/color.json >/dev/null 2>&1
-    brave --refresh-platform-policy >/dev/null 2>&1 || true
+
+  # Build managed policy with dark mode preference
+  BROWSER_POLICY=$(printf '{"BrowserThemeColor":"%s","BackgroundModeEnabled":false}' "$BROWSER_BG")
+
+  # Write browser policies (requires root -- skip silently if not root;
+  # dev-apply.sh handles this separately since theme-set runs as user)
+  if [[ $EUID -eq 0 ]]; then
+    for browser in chromium brave; do
+      command -v "$browser" &>/dev/null || continue
+      mkdir -p "/etc/$browser/policies/managed" 2>/dev/null
+      echo "$BROWSER_POLICY" > "/etc/$browser/policies/managed/color.json" 2>/dev/null
+    done
   fi
+
+  # Brave/Chromium flags files -- the launcher scripts read these on every start.
+  # --force-dark-mode controls the browser UI chrome (title bar, tabs, menus).
+  # --enable-features=WebUIDarkMode controls internal pages (settings, etc.).
+  _set_browser_dark_flag() {
+    local flags_file="$1"
+    mkdir -p "$(dirname "$flags_file")"
+    touch "$flags_file"
+    # Remove any existing dark mode flags
+    sed -i '/^--force-dark-mode$/d; /^--enable-features=.*WebUIDarkMode/d' "$flags_file"
+    if $DARK_MODE; then
+      echo "--force-dark-mode" >> "$flags_file"
+      # Add WebUIDarkMode to existing --enable-features or as new line
+      if grep -q '^--enable-features=' "$flags_file"; then
+        sed -i 's/^--enable-features=\(.*\)/--enable-features=\1,WebUIDarkMode/' "$flags_file"
+      else
+        echo "--enable-features=WebUIDarkMode" >> "$flags_file"
+      fi
+    fi
+    # Clean up empty lines
+    sed -i '/^$/d' "$flags_file"
+  }
+  _set_browser_dark_flag "$HOME/.config/brave-flags.conf"
+  _set_browser_dark_flag "$HOME/.config/chromium-flags.conf"
 fi
 
 echo "Theme set to: $THEME_NAME"

@@ -48,9 +48,10 @@ eww_start() {
         cat "$eww_log" >> "$LOG" 2>&1
         echo "--- end eww log ---" >> "$LOG"
     fi
-    echo "$(date '+%H:%M:%S') Opening bar: $BAR_NAME" >> "$LOG"
+    echo "$(date '+%H:%M:%S') Opening: $BAR_NAME" >> "$LOG"
+    eww --config "$EWW_CONFIG" close "$BAR_NAME" 2>/dev/null  # prevent duplicates
     eww --config "$EWW_CONFIG" open "$BAR_NAME" >> "$LOG" 2>&1 || {
-        echo "$(date '+%H:%M:%S') First open failed (exit $?), retrying in 2s..." >> "$LOG"
+        echo "$(date '+%H:%M:%S') First open of $BAR_NAME failed (exit $?), retrying in 2s..." >> "$LOG"
         sleep 2
         eww --config "$EWW_CONFIG" open "$BAR_NAME" >> "$LOG" 2>&1
     }
@@ -59,8 +60,12 @@ eww_start() {
     eww --config "$EWW_CONFIG" active-windows >> "$LOG" 2>&1
     echo "$(date '+%H:%M:%S') bar-ctl start complete" >> "$LOG"
 }
-eww_stop()   { eww --config "$EWW_CONFIG" close "$BAR_NAME" 2>/dev/null; }
-eww_toggle() { eww --config "$EWW_CONFIG" open --toggle "$BAR_NAME"; }
+eww_stop() {
+    eww --config "$EWW_CONFIG" close "$BAR_NAME" 2>/dev/null
+}
+eww_toggle() {
+    eww --config "$EWW_CONFIG" open --toggle "$BAR_NAME"
+}
 eww_reload() { eww --config "$EWW_CONFIG" reload; }
 
 case "$action" in
@@ -69,7 +74,7 @@ case "$action" in
     toggle)       eww_toggle ;;
     reload)       eww_reload ;;
     *)
-        echo "Usage: bar-ctl [start|stop|toggle|reload] [bar-name]"
+        echo "Usage: bar-ctl [start|stop|toggle|reload] [bar]"
         exit 1
         ;;
 esac

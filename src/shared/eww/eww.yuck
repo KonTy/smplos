@@ -1,5 +1,5 @@
 ;; smplOS EWW Configuration
-;; Universal bar and launcher for Hyprland (Wayland) and DWM (X11)
+;; Universal bar for Hyprland (Wayland) and DWM (X11)
 
 ;; ============================================================================
 ;; VARIABLES
@@ -9,27 +9,40 @@
 (defpoll time :interval "1s" `date +"%H:%M"`)
 (defpoll date :interval "60s" `date +"%a, %b %d"`)
 (defpoll date-full :interval "60s" `date +"%A, %B %d, %Y"`)
+(defpoll calendar-data :interval "3600s" `scripts/calendar.sh`)
 
-;; System Info
-(defpoll cpu :interval "2s" `sysinfo --cpu`)
-(defpoll memory :interval "2s" `sysinfo --mem`)
-(defpoll disk :interval "30s" `sysinfo --disk`)
-(defpoll temperature :interval "5s" `sysinfo --temp`)
+;; System Info (disabled -- uncomment to re-enable)
+;; (defpoll cpu :interval "2s" `sysinfo --cpu`)
+;; (defpoll memory :interval "2s" `sysinfo --mem`)
+;; (defpoll disk :interval "30s" `sysinfo --disk`)
+;; (defpoll temperature :interval "5s" `sysinfo --temp`)
 
-;; Battery
-(defpoll battery :interval "30s" `sysinfo --battery`)
-(defpoll battery-status :interval "30s" `sysinfo --battery-status`)
-(defpoll battery-icon :interval "30s" `sysinfo --battery-icon`)
+;; Battery (disabled -- not in tray)
+;; (defpoll battery :interval "30s" `sysinfo --battery`)
+;; (defpoll battery-status :interval "30s" `sysinfo --battery-status`)
+;; (defpoll battery-icon :interval "30s" `sysinfo --battery-icon`)
 
 ;; Audio (event-driven via pactl subscribe)
 (deflisten volume-data :initial '{"level":"0","muted":"no","icon":""}' `scripts/volume-listener.sh`)
 
-;; Brightness (event-driven via inotifywait)
-(deflisten brightness :initial "100" `scripts/brightness-listener.sh`)
+;; Brightness (disabled -- not in tray)
+;; (deflisten brightness :initial "100" `scripts/brightness-listener.sh`)
 
-;; Network
-(defpoll wifi-ssid :interval "10s" `sysinfo --wifi`)
-(defpoll wifi-icon :interval "10s" `sysinfo --wifi-icon`)
+;; Network (event-driven via nmcli monitor)
+;; display_icon = absolute path to pre-baked SVG (colors from theme-set)
+(deflisten net-data :initial '{"wired":"no","wired_icon":"icons/status/network-wired-disconnected.svg","display_icon":"icons/status/network-wired-disconnected.svg","wifi_on":"no","wifi_icon":"\u{f092e}","ssid":"","online":"no","vpn":"off"}' `scripts/network-listener.sh`)
+
+;; Bluetooth
+(deflisten bt-data :initial '{"powered":"off","connected":"no","device":"","icon":"󰂲"}' `scripts/bluetooth-listener.sh`)
+
+;; Notifications
+(deflisten notif-data :initial '{"count":"0","icon":"󰂜","paused":"no"}' `scripts/notification-listener.sh`)
+
+;; USB storage (disabled -- not in tray)
+;; (deflisten usb-data :initial '{"present":"no","count":"0","icon":""}' `scripts/usb-listener.sh`)
+
+;; Printer (disabled -- not in tray)
+;; (deflisten printer-data :initial '{"active":"no","count":"0","icon":""}' `scripts/printer-listener.sh`)
 
 ;; Workspace (for Hyprland)
 (deflisten workspaces :initial "[]" `scripts/workspaces.sh`)
@@ -48,70 +61,105 @@
           :onclick "launcher &"
     "󰣇"))
 
-;; Workspaces widget
+;; Workspaces widget (4 fixed buttons with category icons)
+;; 1=terminal/code  2=web  3=media  4=files
 (defwidget workspaces-widget []
-  (box :class "workspaces" :orientation "h" :space-evenly false :spacing 4
-    (for ws in workspaces
-      (button :class {ws == active-workspace ? "workspace active" : "workspace"}
-              :onclick "hyprctl dispatch workspace ${ws} 2>/dev/null || true"
-        ws))))
+  (box :class "workspaces" :orientation "h" :space-evenly false :spacing 2
+    (workspace-btn :ws 1 :icon "")
+    (workspace-btn :ws 2 :icon "")
+    (workspace-btn :ws 3 :icon "")
+    (workspace-btn :ws 4 :icon "")))
+
+(defwidget workspace-btn [ws icon]
+  (button :class {active-workspace == ws ? "workspace active" :
+                  arraylength(jq(workspaces, "map(select(. == ${ws}))")) > 0 ? "workspace occupied" :
+                  "workspace"}
+          :onclick "hyprctl dispatch workspace ${ws} 2>/dev/null || true"
+    (box :class "ws-inner" :orientation "h" :space-evenly false :spacing 4
+      (label :class "ws-icon" :text icon)
+      (label :class "ws-dot" :text {active-workspace == ws ? "" : ""}))))
 
 ;; Window title
 (defwidget window []
   (box :class "window-title" :halign "start"
     (label :text window-title :limit-width 50)))
 
-;; Clock widget
-(defwidget clock []
-  (box :class "clock" :orientation "h" :space-evenly false :spacing 8
-    (label :class "time" :text time)
-    (label :class "date" :text date)))
+;; System stats (disabled -- uncomment defpolls above to re-enable)
+;; (defwidget sys-stats []
+;;   (box :class "sys-stats" :orientation "h" :space-evenly false :spacing 12
+;;     (box :class "stat cpu" :orientation "h" :space-evenly false :spacing 4
+;;       (label :class "icon" :text "")
+;;       (label :class "value" :text "${cpu}%"))
+;;     (box :class "stat mem" :orientation "h" :space-evenly false :spacing 4
+;;       (label :class "icon" :text "")
+;;       (label :class "value" :text "${memory}%"))))
 
-;; System tray widgets
-(defwidget sys-tray []
-  (box :class "sys-tray" :orientation "h" :space-evenly false :spacing 12
-    ;; Volume
+;; Power button (disabled)
+;; (defwidget power []
+;;   (button :class "power-btn"
+;;           :onclick "powermenu &"
+;;     "⏻"))
+
+;; -- Tray indicators (icon-only, integrated into bar-right) --
+
+;; Volume (icon-only, varies with level)
+(defwidget tray-volume []
+  (eventbox :onscroll "volume-ctl {} 5"
     (button :class "tray-btn volume"
             :onclick "volume-ctl toggle"
             :onrightclick "pavucontrol &"
-      (box :orientation "h" :space-evenly false :spacing 4
-        (label :class "icon" :text {volume-data.icon})
-        (label :class "value" :text "${volume-data.level}%")))
-    
-    ;; Brightness
-    (eventbox :onscroll "brightness-ctl 5 {}"
-      (box :class "tray-btn brightness" :orientation "h" :space-evenly false :spacing 4
-        (label :class "icon" :text "󰃟")
-        (label :class "value" :text "${brightness}%")))
-    
-    ;; Battery (only show if available)
-    (box :visible {battery != "N/A"}
-      (box :class "tray-btn battery" :orientation "h" :space-evenly false :spacing 4
-        (label :class "icon" :text battery-icon)
-        (label :class "value" :text "${battery}%")))
-    
-    ;; WiFi
-    (button :class "tray-btn wifi"
-            :onclick "nm-connection-editor &"
-      (box :orientation "h" :space-evenly false :spacing 4
-        (label :class "icon" :text wifi-icon)
-        (label :class "value" :text {wifi-ssid ?: "Disconnected"})))))
+            :tooltip "Volume: ${volume-data.level}%"
+      (label :class "icon" :text {volume-data.icon}))))
 
-;; System stats
-(defwidget sys-stats []
-  (box :class "sys-stats" :orientation "h" :space-evenly false :spacing 12
-    (box :class "stat cpu" :orientation "h" :space-evenly false :spacing 4
-      (label :class "icon" :text "")
-      (label :class "value" :text "${cpu}%"))
-    (box :class "stat mem" :orientation "h" :space-evenly false :spacing 4
-      (label :class "icon" :text "")
-      (label :class "value" :text "${memory}%"))))
+;; Network status icon (SVG, colors baked by theme-set -- no :fill-svg needed)
+(defwidget tray-internet []
+  (button :class "tray-btn internet"
+          :onclick "nm-connection-editor &"
+          :tooltip {net-data.vpn == "on" ? "VPN active" :
+                    net-data.wired == "yes" ? "Wired connected" :
+                    net-data.online == "yes" ? "Online" : "Disconnected"}
+    (image :path {net-data.display_icon}
+           :image-width 16 :image-height 16)))
 
-;; Power button
-(defwidget power []
-  (button :class "power-btn"
-          :onclick "powermenu &"
-    "⏻"))
+;; WiFi (signal bars icon, crossed out if off)
+(defwidget tray-wifi []
+  (button :class "tray-btn wifi"
+          :onclick "nm-connection-editor &"
+          :tooltip {net-data.ssid ?: (net-data.wifi_on == "yes" ? "Not connected" : "WiFi off")}
+    (label :class "icon" :text {net-data.wifi_icon})))
+
+;; Bluetooth (icon, crossed out if off)
+(defwidget tray-bluetooth []
+  (button :class "tray-btn bluetooth"
+          :onclick "bluetoothctl show 2>/dev/null | grep -q 'Powered: yes' && bluetoothctl power off || bluetoothctl power on"
+          :tooltip {bt-data.connected == "yes" ? bt-data.device :
+                    bt-data.powered == "on" ? "Bluetooth on" : "Bluetooth off"}
+    (label :class "icon" :text {bt-data.icon})))
+
+;; Notifications bell (empty=none, filled=has notifications)
+(defwidget tray-notifications []
+  (button :class "tray-btn notifications ${notif-data.count != '0' ? 'has-notifs' : ''}"
+          :onclick "dunstctl history-pop"
+          :onrightclick "dunstctl close-all"
+          :tooltip {notif-data.count != "0" ? "${notif-data.count} notifications" : "No notifications"}
+    (label :class "icon" :text {notif-data.icon})))
+
+;; Clock + calendar toggle
+(defwidget tray-clock []
+  (button :class "tray-btn clock-btn"
+          :onclick "popup-toggle calendar-popup"
+    (label :class "time" :text time)))
+
+;; -- Tray group (icon-only indicators) --
+;; Order right-to-left: Notifications | Clock | Volume | Internet | WiFi | BT
+(defwidget tray []
+  (box :class "tray" :orientation "h" :space-evenly false :spacing 2
+    (tray-bluetooth)
+    (tray-wifi)
+    (tray-internet)
+    (tray-volume)
+    (tray-clock)
+    (tray-notifications)))
 
 ;; ============================================================================
 ;; BAR LAYOUT
@@ -124,14 +172,11 @@
     (window)))
 
 (defwidget bar-center []
-  (box :class "bar-center" :orientation "h" :space-evenly false :halign "center"
-    (clock)))
+  (box :class "bar-center" :orientation "h" :space-evenly false :halign "center"))
 
 (defwidget bar-right []
-  (box :class "bar-right" :orientation "h" :space-evenly false :halign "end" :spacing 12
-    (sys-stats)
-    (sys-tray)
-    (power)))
+  (box :class "bar-right" :orientation "h" :space-evenly false :halign "end" :spacing 8
+    (tray)))
 
 (defwidget bar-content []
   (centerbox :class "bar-content"
@@ -140,14 +185,37 @@
     (bar-right)))
 
 ;; ============================================================================
+;; CALENDAR POPUP
+;; ============================================================================
+
+(defwidget calendar-widget []
+  (box :class "cal-popup" :orientation "v" :space-evenly false :spacing 8
+    (box :class "cal-header" :orientation "h" :space-evenly false
+      (label :class "cal-month" :text "${calendar-data.month_name} ${calendar-data.year}" :halign "start" :hexpand true)
+      (button :class "cal-close" :onclick "popup-toggle --close" "x"))
+    (box :class "cal-body"
+      (calendar :class "cal-widget"))))
+
+;; ============================================================================
 ;; WINDOWS
 ;; ============================================================================
 
+;; Bar (bottom, nearly full-width, thin)
 (defwindow bar
   :monitor 0
-  :geometry (geometry :x "0%" :y "8px" :width "98%" :height "40px" :anchor "top center")
+  :namespace "eww-bar"
+  :geometry (geometry :x "0%" :y "2px" :width "99.7%" :height "30px" :anchor "bottom center")
   :stacking "fg"
   :exclusive true
   :focusable false
   (bar-content))
+
+;; Calendar popup (above bottom bar, right side)
+(defwindow calendar-popup
+  :monitor 0
+  :namespace "eww-calendar-popup"
+  :geometry (geometry :x "-4px" :y "38px" :width "280px" :height "280px" :anchor "bottom right")
+  :stacking "overlay"
+  :focusable false
+  (calendar-widget))
 

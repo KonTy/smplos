@@ -99,7 +99,6 @@ header "Config Files"
 dump_file "$REAL_HOME/.config/eww"           "config/eww"
 dump_file "$REAL_HOME/.config/hypr"          "config/hypr"
 dump_file "$REAL_HOME/.config/smplos"        "config/smplos"
-dump_file "$REAL_HOME/.config/kitty"         "config/kitty"
 dump_file "$REAL_HOME/.config/foot"          "config/foot"
 dump_file "$REAL_HOME/.config/dunst"          "config/dunst"
 dump_file "$REAL_HOME/.config/btop"          "config/btop"
@@ -127,7 +126,7 @@ REAL_UID=$(id -u "$REAL_USER")
 RUNDIR="/run/user/$REAL_UID"
 HYPR_SIG=$(find "$RUNDIR/hypr" -maxdepth 1 -mindepth 1 -type d -printf '%f' 2>/dev/null | head -1)
 user_cmd() {
-    su -s /bin/bash "$REAL_USER" -c "XDG_RUNTIME_DIR=$RUNDIR HYPRLAND_INSTANCE_SIGNATURE=$HYPR_SIG $*"
+    runuser -u "$REAL_USER" -- env XDG_RUNTIME_DIR="$RUNDIR" HYPRLAND_INSTANCE_SIGNATURE="$HYPR_SIG" bash -c "$*"
 }
 
 dump_cmd "runtime/eww-state.txt"         user_cmd "eww --config $REAL_HOME/.config/eww state"

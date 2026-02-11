@@ -1,5 +1,5 @@
 /* smplOS EWW Stylesheet */
-/* Universal theme for Hyprland and DWM */
+/* Single bar with integrated system tray */
 
 /* ============================================================================
    THEME COLORS -- defaults (catppuccin) overridden by theme-colors.scss
@@ -18,6 +18,7 @@ $theme-red: #f38ba8 !default;
 $theme-yellow: #f9e2af !default;
 $theme-orange: #f9e2af !default;
 $theme-cyan: #94e2d5 !default;
+$theme-popup-opacity: 0.75 !default;
 
 /* Override with active theme colors (written by theme-set) */
 @import "theme-colors";
@@ -34,7 +35,8 @@ $green: $theme-green;
 $red: $theme-red;
 $yellow: $theme-yellow;
 $orange: $theme-orange;
-$border-radius: 12px;
+$popup-opacity: $theme-popup-opacity;
+$border-radius: 2px;
 $font: "JetBrains Mono Nerd Font";
 
 /* ============================================================================
@@ -59,25 +61,29 @@ window {
    ============================================================================ */
 
 .bar-content {
-  background-color: $bg;
+  background-color: rgba($bg, 0.95);
   border-radius: $border-radius;
-  border: 1px solid $bg-lighter;
-  padding: 4px 16px;
+  border: 1px solid rgba($bg-lighter, 0.95);
+  padding: 2px 5px;
 }
 
 .bar-left,
 .bar-center,
 .bar-right {
-  padding: 0 8px;
+  padding: 0 2px;
 }
 
 /* Logo */
 .logo {
-  font-size: 18px;
+  font-size: 16px;
   color: $accent;
-  padding: 4px 8px;
-  border-radius: 8px;
+  padding: 2px 6px;
+  border-radius: 4px;
   transition: all 200ms ease;
+}
+
+.logo label {
+  color: $accent;
 }
 
 .logo:hover {
@@ -90,21 +96,42 @@ window {
 }
 
 .workspace {
-  padding: 4px 12px;
-  border-radius: 8px;
-  color: $fg-dim;
+  padding: 2px 10px;
+  border-radius: 12px;
+  color: rgba($accent, 0.8);
   transition: all 200ms ease;
 }
 
+.workspace label {
+  color: rgba($accent, 0.8);
+}
+
+.workspace .ws-icon {
+  font-size: 13px;
+}
+
+.workspace .ws-dot {
+  font-size: 6px;
+}
+
 .workspace:hover {
-  background-color: $bg-light;
-  color: $fg;
+  background-color: rgba($bg-light, 0.6);
+  color: $accent;
+}
+.workspace:hover label {
+  color: $accent;
+}
+
+.workspace.occupied label {
+  color: $accent;
 }
 
 .workspace.active {
   background-color: $accent;
-  color: $bg;
   font-weight: bold;
+}
+.workspace.active label {
+  color: $bg;
 }
 
 /* Window title */
@@ -113,32 +140,22 @@ window {
   padding: 0 12px;
 }
 
-/* Clock */
-.clock {
-  padding: 4px 16px;
-  background-color: $bg-light;
-  border-radius: 8px;
-}
+/* System stats removed */
 
-.time {
-  font-weight: bold;
-  color: $accent;
-}
+/* Power button removed */
 
-.date {
-  color: $fg-dim;
-  font-size: 12px;
-}
+/* ============================================================================
+   TRAY (icon-only indicators in bar-right)
+   ============================================================================ */
 
-/* System tray */
-.sys-tray {
-  padding: 0 8px;
+.tray {
+  padding: 0 4px;
 }
 
 .tray-btn {
-  padding: 4px 10px;
-  border-radius: 8px;
-  transition: all 200ms ease;
+  padding: 2px 6px;
+  border-radius: 4px;
+  transition: all 150ms ease;
 }
 
 .tray-btn:hover {
@@ -147,70 +164,89 @@ window {
 
 .tray-btn .icon {
   font-size: 14px;
-  margin-right: 4px;
 }
 
-.tray-btn .value {
-  font-size: 12px;
-  color: $fg-dim;
-}
+/* Per-indicator icon colors */
+.tray-btn.volume .icon     { color: $accent; }
+.tray-btn.wifi .icon       { color: $accent; }
+.tray-btn.bluetooth .icon  { color: $accent; }
 
-.tray-btn.volume .icon {
+/* Internet icon: colors baked into SVGs by theme-set (no CSS needed) */
+
+/* Notifications: shape conveys state (outline=empty, filled=has, slash=DND) */
+.tray-btn.notifications .icon { color: $accent; }
+
+/* Clock in tray */
+.tray-btn.clock-btn .time {
+  font-weight: bold;
   color: $accent;
 }
 
-.tray-btn.brightness .icon {
-  color: $yellow;
+/* ============================================================================
+   CALENDAR POPUP
+   ============================================================================ */
+
+.cal-popup {
+  background-color: rgba(darken($bg, 5%), $popup-opacity);
+  border-radius: 6px;
+  border: 1px solid rgba($bg-lighter, 0.35);
+  padding: 12px;
+  box-shadow: 0 -2px 12px rgba(0, 0, 0, 0.3);
 }
 
-.tray-btn.battery .icon {
-  color: $green;
+.cal-header {
+  padding: 4px 8px 8px;
 }
 
-.tray-btn.wifi .icon {
-  color: $accent-alt;
+.cal-month {
+  font-size: 14px;
+  font-weight: bold;
+  color: $accent;
 }
 
-/* System stats */
-.sys-stats {
-  padding: 4px 12px;
+.cal-close {
+  font-size: 13px;
+  font-weight: bold;
+  color: $fg;
   background-color: $bg-light;
-  border-radius: 8px;
+  padding: 2px 8px;
+  border-radius: 4px;
+  min-width: 20px;
+  min-height: 20px;
 }
 
-.stat {
-  padding: 0 8px;
+.cal-close:hover {
+  background-color: $red;
+  color: $bg;
 }
 
-.stat .icon {
+/* GTK3 calendar widget styles */
+.cal-widget {
+  color: $fg;
   font-size: 12px;
-  margin-right: 4px;
 }
 
-.stat.cpu .icon {
-  color: $orange;
+.cal-widget calendar {
+  color: $fg;
+  background-color: transparent;
 }
 
-.stat.mem .icon {
-  color: $green;
+.cal-widget calendar:selected {
+  background-color: $accent;
+  color: $bg;
+  border-radius: 4px;
 }
 
-.stat .value {
-  font-size: 11px;
+.cal-widget calendar.header {
+  color: $accent;
+  font-weight: bold;
+}
+
+.cal-widget calendar.button {
   color: $fg-dim;
 }
 
-/* Power button */
-.power-btn {
-  padding: 4px 12px;
-  border-radius: 8px;
-  color: $red;
-  font-size: 16px;
-  transition: all 200ms ease;
-}
-
-.power-btn:hover {
-  background-color: $red;
-  color: $bg;
+.cal-widget calendar:indeterminate {
+  color: rgba($fg-dim, 0.4);
 }
 

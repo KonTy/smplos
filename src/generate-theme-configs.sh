@@ -49,7 +49,7 @@ generate_theme() {
   done < "$colors_file" > "$sed_script"
 
   # Decoration defaults (applied only if theme didn't set them)
-  for pair in "rounding:10" "blur_size:6" "blur_passes:3" "opacity_active:0.92" "opacity_inactive:0.85" "term_opacity_active:0.82" "term_opacity_inactive:0.75"; do
+  for pair in "rounding:10" "blur_size:6" "blur_passes:3" "opacity_active:0.92" "opacity_inactive:0.85" "term_opacity_active:1.0" "term_opacity_inactive:1.0" "popup_opacity:0.60"; do
     local dkey="${pair%%:*}" dval="${pair#*:}"
     if ! grep -q "{{ ${dkey} }}" "$sed_script"; then
       printf 's|{{ %s }}|%s|g\n' "$dkey" "$dval" >> "$sed_script"

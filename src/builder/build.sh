@@ -572,6 +572,16 @@ setup_airootfs() {
         find "$airootfs/root/smplos/config/eww/scripts" -name '*.sh' -exec chmod +x {} \; 2>/dev/null || true
     fi
 
+    # Copy shared icons (SVG status icons for EWW bar)
+    if [[ -d "$SRC_DIR/shared/icons" ]]; then
+        log_info "Copying shared icons"
+        mkdir -p "$skel/.config/eww/icons"
+        cp -r "$SRC_DIR/shared/icons/"* "$skel/.config/eww/icons/" 2>/dev/null || true
+        # Also to smplos install path
+        mkdir -p "$airootfs/root/smplos/config/eww/icons"
+        cp -r "$SRC_DIR/shared/icons/"* "$airootfs/root/smplos/config/eww/icons/" 2>/dev/null || true
+    fi
+
     # Deploy default wallpaper (catppuccin theme)
     if [[ -d "$SRC_DIR/shared/themes/catppuccin/backgrounds" ]]; then
         log_info "Deploying default wallpaper"
@@ -614,7 +624,22 @@ setup_airootfs() {
         # Link pre-baked configs into app config dirs for live session
         local theme_src="$SRC_DIR/shared/themes/catppuccin"
         cp "$theme_src/eww-colors.scss" "$skel/.config/eww/theme-colors.scss" 2>/dev/null || true
-        mkdir -p "$skel/.config/kitty" && cp "$theme_src/kitty.conf" "$skel/.config/kitty/theme.conf" 2>/dev/null || true
+        # Bake SVG icon templates with catppuccin colors for live session
+        if [[ -d "$SRC_DIR/shared/icons/status" ]]; then
+            # Install templates to smplos data dir
+            mkdir -p "$skel/.local/share/smplos/icons/status"
+            cp "$SRC_DIR/shared/icons/status/"*.svg "$skel/.local/share/smplos/icons/status/"
+            # Bake for the default theme
+            local _accent _fg_dim
+            _accent=$(grep '^accent' "$theme_src/colors.toml" | head -1 | sed 's/.*"\(#[^"]*\)".*/\1/')
+            _fg_dim=$(grep '^color15\|^foreground' "$theme_src/colors.toml" | head -1 | sed 's/.*"\(#[^"]*\)".*/\1/')
+            _accent=${_accent:-#89b4fa}; _fg_dim=${_fg_dim:-#a6adc8}
+            mkdir -p "$skel/.config/eww/icons/status"
+            for svg in "$skel/.local/share/smplos/icons/status/"*.svg; do
+                sed "s/{{accent}}/$_accent/g; s/{{fg-dim}}/$_fg_dim/g" "$svg" \
+                    > "$skel/.config/eww/icons/status/$(basename "$svg")"
+            done
+        fi
         mkdir -p "$skel/.config/hypr" && cp "$theme_src/hyprland.conf" "$skel/.config/hypr/theme.conf" 2>/dev/null || true
         cp "$theme_src/hyprlock.conf" "$skel/.config/hypr/hyprlock-theme.conf" 2>/dev/null || true
         mkdir -p "$skel/.config/foot" && cp "$theme_src/foot.ini" "$skel/.config/foot/theme.ini" 2>/dev/null || true
@@ -626,7 +651,7 @@ setup_airootfs() {
         local browser_bg
         browser_bg=$(grep '^background' "$theme_src/colors.toml" | sed 's/.*"\(#[0-9a-fA-F]*\)".*/\1/')
         if [[ -n "$browser_bg" ]]; then
-            local policy="{\"BrowserThemeColor\": \"$browser_bg\"}"
+            local policy="{\"BrowserThemeColor\": \"$browser_bg\", \"BackgroundModeEnabled\": false}"
             mkdir -p "$airootfs/etc/brave/policies/managed"
             echo "$policy" > "$airootfs/etc/brave/policies/managed/color.json"
             mkdir -p "$airootfs/etc/chromium/policies/managed"

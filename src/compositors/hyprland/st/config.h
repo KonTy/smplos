@@ -175,8 +175,8 @@ char *termclass = "terminal";
 unsigned int tabspaces = 8;
 
 #if ALPHA_PATCH
-/* bg opacity */
-#define DEFAULT_ALPHA 0.8
+/* bg opacity — set to 1.0 (opaque); transparency is controlled by Hyprland window rules */
+#define DEFAULT_ALPHA 1.0
 float alpha = DEFAULT_ALPHA;
 uint8_t term_alpha = (uint8_t)(DEFAULT_ALPHA*255.0);
 #if ALPHA_GRADIENT_PATCH
@@ -382,8 +382,10 @@ static Shortcut shortcuts[] = {
 	{ MOD_MASK_NONE,            XKB_KEY_F11,         fullscreen,      {.i =  0} },
 	#endif // FULLSCREEN_PATCH
 	#if SCROLLBACK_PATCH || REFLOW_PATCH
-	{ MOD_MASK_SHIFT,            XKB_KEY_Page_Up,     kscrollup,       {.i = -1}, S_PRI },
-	{ MOD_MASK_SHIFT,            XKB_KEY_Page_Down,   kscrolldown,     {.i = -1}, S_PRI },
+	{ MOD_MASK_NONE,             XKB_KEY_Page_Up,     kscrollup,       {.i = -75} },
+	{ MOD_MASK_NONE,             XKB_KEY_Page_Down,   kscrolldown,     {.i = -75} },
+	{ MOD_MASK_SHIFT,            XKB_KEY_Page_Up,     kscrollup,       {.i = -100} },
+	{ MOD_MASK_SHIFT,            XKB_KEY_Page_Down,   kscrolldown,     {.i = -100} },
 	#endif // SCROLLBACK_PATCH || REFLOW_PATCH
 	#if CLIPBOARD_PATCH
 	{ TERMMOD,              XKB_KEY_Y,           clippaste,       {.i =  0} },

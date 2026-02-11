@@ -55,7 +55,7 @@ src/compositors/dwm/        ← ONLY DWM-specific config (future)
    No waybar, no polybar. EWW runs on both GTK3/X11 and GTK3/Wayland.
 
 6. **Theme system is universal.** One `theme-set` script applies colors to:
-   EWW, kitty, foot, alacritty, btop, mako, Hyprland borders, hyprlock, neovim.
+   EWW, st, foot, btop, mako, Hyprland borders, hyprlock, neovim.
    Adding a compositor means adding one more template, not rewriting themes.
 
 ### EWW Guidelines
@@ -68,6 +68,12 @@ src/compositors/dwm/        ← ONLY DWM-specific config (future)
 - **Script permissions.** Always `chmod +x` EWW scripts in build pipeline AND at
   runtime (archiso/useradd can strip execute bits).
 - **`--config $HOME/.config/eww`** on every `eww` CLI call.
+- **Every `defwindow` must have an explicit `:namespace`.** Without it, the
+  Wayland layer surface gets the default namespace `"gtk-layer-shell"`, which
+  means Hyprland `layerrule` (blur, opacity, animations) cannot target individual
+  windows. Use the convention `:namespace "eww-<window-name>"` (e.g.
+  `"eww-bar"`, `"eww-calendar-popup"`). Then match in `windows.conf`:
+  `layerrule = blur on, match:namespace eww-<window-name>`.
 - **Use the shared dialog system for overlays.** Theme picker, keybind help, and
   any future overlay (settings, about, etc.) use the same pattern:
   - **CSS:** `.dialog`, `.dialog-header`, `.dialog-title`, `.dialog-close`,
@@ -93,6 +99,11 @@ src/compositors/dwm/        ← ONLY DWM-specific config (future)
 
 ### Code Quality: Modular & DRY
 
+- **Shapes over colors for state.** Never rely on color alone to indicate state
+  (connected/disconnected, notifications/none, etc.). Use distinct icon shapes
+  (filled vs outline, with/without X or slash). This ensures accessibility for
+  users with color blindness. Color should reinforce the theme, not carry meaning.
+
 - **Extract reusable functions.** If a pattern appears twice, make it a function.
   Bash scripts should define helper functions (`log()`, `die()`, `emit()`) at the
   top rather than repeating inline logic.
@@ -111,4 +122,4 @@ src/compositors/dwm/        ← ONLY DWM-specific config (future)
 
 - Keep the package list minimal. Audit regularly for bloat.
 - Known bloat candidates: wofi, fuzzel, rofi-wayland (3 redundant launchers),
-  alacritty + foot (unused terminals alongside kitty), nwg-look (unused GUI tool).
+  alacritty + foot (unused terminals alongside st), nwg-look (unused GUI tool).

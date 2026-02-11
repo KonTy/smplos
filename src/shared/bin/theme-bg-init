@@ -1,0 +1,45 @@
+#!/bin/bash
+# smplOS Background Restore (login/reboot)
+# Restores the last wallpaper from the saved symlink.
+# If no wallpaper was previously set, picks the first from the theme.
+
+CURRENT_BG_LINK="$HOME/.config/smplos/current/background"
+THEME_BACKGROUNDS="$HOME/.config/smplos/current/theme/backgrounds"
+
+set_wallpaper() {
+  pkill swaybg 2>/dev/null
+  sleep 0.1
+  if [[ -n "${WAYLAND_DISPLAY:-}" ]]; then
+    swaybg -i "$1" -m fill &>/dev/null &
+    disown $! 2>/dev/null
+  elif [[ -n "${DISPLAY:-}" ]]; then
+    feh --bg-fill "$1" 2>/dev/null
+  fi
+}
+
+# 1. Try the saved symlink
+target=$(readlink -f "$CURRENT_BG_LINK" 2>/dev/null)
+if [[ -n "$target" && -f "$target" ]]; then
+  set_wallpaper "$target"
+  exit 0
+fi
+
+# 2. Symlink missing or broken -- find the first background from current theme
+first_bg=$(find -L "$THEME_BACKGROUNDS" "$HOME/Pictures/Wallpapers" \
+  -maxdepth 1 -type f \( -name '*.jpg' -o -name '*.png' -o -name '*.jpeg' -o -name '*.webp' \) \
+  2>/dev/null | sort | head -1)
+
+if [[ -n "$first_bg" ]]; then
+  mkdir -p "$(dirname "$CURRENT_BG_LINK")"
+  ln -snf "$first_bg" "$CURRENT_BG_LINK"
+  set_wallpaper "$first_bg"
+  exit 0
+fi
+
+# 3. No images at all -- solid color from theme
+bg_color=$(grep '^background' "$HOME/.config/smplos/current/theme/colors.toml" 2>/dev/null | head -1 | sed 's/.*"\(#[^"]*\)".*/\1/')
+bg_color="${bg_color:-#0a0a0a}"
+if [[ -n "${WAYLAND_DISPLAY:-}" ]]; then
+  swaybg -c "$bg_color" &>/dev/null &
+  disown $! 2>/dev/null
+fi

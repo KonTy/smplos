@@ -13,8 +13,7 @@ set_wallpaper() {
   if [[ -n "${WAYLAND_DISPLAY:-}" ]]; then
     pkill swaybg 2>/dev/null
     sleep 0.1
-    swaybg "$@" &
-    disown
+    setsid swaybg "$@" &>/dev/null &
   elif [[ -n "${DISPLAY:-}" ]]; then
     case "$1" in
       -c) feh --bg-fill --image-bg "$2" /dev/null 2>/dev/null || xsetroot -solid "$2" 2>/dev/null ;;
@@ -29,8 +28,8 @@ mapfile -d '' -t BACKGROUNDS < <(find -L "$USER_BACKGROUNDS" "$THEME_BACKGROUNDS
 
 if [[ ${#BACKGROUNDS[@]} -eq 0 ]]; then
   # No backgrounds - use solid color from theme
-  source <(grep '^background' "$HOME/.config/smplos/current/theme/colors.toml" | head -1 | sed 's/ //g')
-  set_wallpaper -c "${background:-#0a0a0a}"
+  bg_color=$(grep '^background' "$HOME/.config/smplos/current/theme/colors.toml" 2>/dev/null | head -1 | sed 's/.*"\(#[^"]*\)".*/\1/')
+  set_wallpaper -c "${bg_color:-#0a0a0a}"
   exit 0
 fi
 

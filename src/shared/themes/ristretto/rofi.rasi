@@ -9,7 +9,7 @@
     accent:      #f38d70;
     red:         #fd6883;
     urgent:      #fd6883;
-    border-rad:  10px;
+    border-rad:  3px;
 
     background-color: transparent;
     text-color:       @fg;

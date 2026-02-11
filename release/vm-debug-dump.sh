@@ -146,8 +146,6 @@ dump_file "$REAL_HOME/.config/hypr"                   "config/hypr"
 dump_file "$REAL_HOME/.config/smplos"                 "config/smplos"
 
 # Terminal configs
-dump_file "$REAL_HOME/.config/kitty/kitty.conf"       "config/kitty/kitty.conf"
-dump_file "$REAL_HOME/.config/kitty/theme.conf"       "config/kitty/theme.conf"
 dump_file "$REAL_HOME/.config/foot/foot.ini"          "config/foot/foot.ini"
 dump_file "$REAL_HOME/.config/foot/theme.ini"         "config/foot/theme.ini"
 dump_file "$REAL_HOME/.config/alacritty"              "config/alacritty"

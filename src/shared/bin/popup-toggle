@@ -1,0 +1,40 @@
+#!/bin/bash
+# smplOS Popup Toggle -- opens one EWW popup, closes all others
+# Usage: popup-toggle <window-name>    Open/toggle a popup
+#        popup-toggle --close          Close all popups
+#
+# Features:
+#   - Mutual exclusion: only one popup visible at a time
+#   - Works on both Wayland and X11 (no compositor-specific code)
+
+EWW="eww --config $HOME/.config/eww"
+
+# All known popup windows (add new popups here)
+POPUPS=(calendar-popup)
+
+# eww active-windows outputs "id: name" per line
+is_window_open() {
+  $EWW active-windows 2>/dev/null | grep -q "^${1}: \|^${1}$"
+}
+
+close_all() {
+  for p in "${POPUPS[@]}"; do
+    is_window_open "$p" && $EWW close "$p" 2>/dev/null
+  done
+}
+
+# --close: just close everything
+if [[ "${1:-}" == "--close" ]]; then
+  close_all
+  exit 0
+fi
+
+WINDOW="${1:?Usage: popup-toggle <window-name> | --close}"
+
+# Toggle: if open, close; if closed, close others and open
+if is_window_open "$WINDOW"; then
+  $EWW close "$WINDOW" 2>/dev/null
+else
+  close_all
+  $EWW open "$WINDOW" 2>/dev/null
+fi

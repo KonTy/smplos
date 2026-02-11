@@ -12,9 +12,7 @@ harfbuzz
 imlib2
 
 # ── File Manager ─────────────────────────────────────────────
-thunar
-thunar-volman
-thunar-archive-plugin
+doublecmd-qt6
 gvfs
 gvfs-mtp
 
