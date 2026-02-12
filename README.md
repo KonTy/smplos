@@ -93,13 +93,162 @@ release/               VM testing tools (dev-push, test-iso, QEMU scripts)
 
 ## Building
 
-### ISO
+The build system is designed to work on **first run, on any Linux distro**. It runs inside a Docker container for reproducibility — your host system only needs Docker.
+
+### Quick Start
 
 ```bash
 cd src && ./build-iso.sh
 ```
 
-This produces a bootable Arch Linux ISO with smplOS pre-configured. Takes ~15 minutes.
+This produces a bootable Arch Linux ISO in `release/`. First build takes ~15-20 minutes (downloads packages); subsequent same-day builds reuse the package cache and finish much faster.
+
+### Prerequisites
+
+The only hard requirement is **Docker**. If Docker isn't installed, the build script will detect your distro and offer to install it for you:
+
+```
+[WARN] Docker not found
+Install Docker automatically? [Y/n]
+```
+
+If you prefer to install Docker yourself:
+
+<details>
+<summary><b>Arch / EndeavourOS / Manjaro / Garuda / CachyOS</b></summary>
+
+```bash
+sudo pacman -S --needed docker
+sudo systemctl enable --now docker
+sudo usermod -aG docker $USER
+# Log out and back in for group to take effect
+```
+</details>
+
+<details>
+<summary><b>Ubuntu / Debian / Pop!_OS / Linux Mint / Zorin</b></summary>
+
+```bash
+# Install prerequisites
+sudo apt-get update
+sudo apt-get install -y ca-certificates curl gnupg
+
+# Add Docker GPG key
+sudo install -m 0755 -d /etc/apt/keyrings
+curl -fsSL https://download.docker.com/linux/ubuntu/gpg \
+    | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
+sudo chmod a+r /etc/apt/keyrings/docker.gpg
+
+# Add Docker repo (use "ubuntu" or "debian" depending on your base)
+echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] \
+    https://download.docker.com/linux/ubuntu \
+    $(. /etc/os-release && echo "$VERSION_CODENAME") stable" \
+    | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
+
+# Install
+sudo apt-get update
+sudo apt-get install -y docker-ce docker-ce-cli containerd.io
+sudo systemctl enable --now docker
+sudo usermod -aG docker $USER
+```
+</details>
+
+<details>
+<summary><b>Fedora / Nobara</b></summary>
+
+```bash
+sudo dnf install -y docker
+sudo systemctl enable --now docker
+sudo usermod -aG docker $USER
+```
+</details>
+
+<details>
+<summary><b>openSUSE</b></summary>
+
+```bash
+sudo zypper install -y docker
+sudo systemctl enable --now docker
+sudo usermod -aG docker $USER
+```
+</details>
+
+<details>
+<summary><b>Void Linux</b></summary>
+
+```bash
+sudo xbps-install -y docker
+sudo ln -s /etc/sv/docker /var/service/
+sudo usermod -aG docker $USER
+```
+</details>
+
+After installing Docker, **log out and back in** so the docker group takes effect. If you skip this, the build script will automatically fall back to `sudo docker`.
+
+You also need **~10 GB of free disk space**. The script checks this and warns you if you're low.
+
+### Build Options
+
+```
+Usage: build-iso.sh [OPTIONS]
+
+Options:
+    -c, --compositor NAME   Compositor to build (hyprland, dwm) [default: hyprland]
+    -e, --edition NAME      Edition variant (lite, creators) [optional]
+    -r, --release           Release build: max xz compression (slow, smallest ISO)
+    -n, --no-cache          Force fresh package downloads
+    -v, --verbose           Verbose output
+    --skip-aur              Skip AUR packages (faster, no Rust compilation)
+    --skip-flatpak          Skip Flatpak packages
+    --skip-appimage         Skip AppImages
+    -h, --help              Show this help
+```
+
+#### Common Workflows
+
+```bash
+# Standard build (Hyprland, all packages)
+./build-iso.sh
+
+# Fast iteration build (skip AUR packages like EWW that take ages to compile)
+./build-iso.sh --skip-aur
+
+# Build a specific edition
+./build-iso.sh -c hyprland -e lite
+
+# Release build with max compression
+./build-iso.sh --release
+
+# Full verbose output for debugging
+./build-iso.sh -v
+```
+
+### What the Build Does
+
+1. **Checks prerequisites** — detects your distro, ensures Docker is installed and running, checks disk space.
+2. **Builds AUR packages** (unless `--skip-aur`) — compiles packages like EWW in a temporary container. Results are cached in `src/iso/prebuilt/` so they only build once.
+3. **Pulls `archlinux:latest`** — the build runs in a fresh Arch container for reproducibility.
+4. **Downloads packages** — uses `pacman -Syw` to download all packages into a local mirror. On Arch-based hosts, your system's pacman cache is mounted read-only for instant hits.
+5. **Builds the ISO** — copies configs, themes, scripts, and the offline package mirror into an Arch ISO profile, then runs `mkarchiso`.
+6. **Outputs** — the final `.iso` lands in `release/`.
+
+### Caching
+
+Builds use a **dated cache** (`build_YYYY-MM-DD/`) under `.cache/`. Same-day rebuilds reuse downloaded packages. Old caches are automatically pruned (keeps the last 3 days). To force a completely fresh build:
+
+```bash
+./build-iso.sh --no-cache
+```
+
+### Troubleshooting
+
+| Problem | Solution |
+|---------|----------|
+| `permission denied` from Docker | Run `sudo usermod -aG docker $USER`, then log out and back in |
+| DNS errors inside container | The build script passes `--dns 1.1.1.1 --dns 8.8.8.8` to work around systemd-resolved. If you still get DNS errors, check your firewall. |
+| `no space left on device` | Need ~10 GB free. Also run `docker system prune` to reclaim Docker disk space. |
+| AUR build fails | Try `--skip-aur` to skip it. Pre-built AUR packages are cached in `src/iso/prebuilt/`. |
+| Slow builds | First build downloads ~2 GB of packages. After that, the cache makes rebuilds much faster. On Arch hosts, your system pacman cache is reused automatically. |
 
 ### Development Iteration
 

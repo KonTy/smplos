@@ -55,6 +55,33 @@ declare -a FLATPAK_PACKAGES=()
 declare -a APPIMAGE_PACKAGES=()
 
 ###############################################################################
+# Helpers
+###############################################################################
+
+# Retry a command up to 3 times with backoff
+retry() {
+    local n=0
+    while true; do
+        "$@" && return 0
+        ((n++))
+        [[ $n -ge 3 ]] && { log_error "Failed after 3 attempts: $*"; return 1; }
+        log_warn "Retry $n/3: $*"
+        sleep $((n * 5))
+    done
+}
+
+# Read a package list file, skipping comments and blank lines
+read_package_list() {
+    local file="$1"
+    local -n arr="$2"
+    [[ -f "$file" ]] || return 0
+    while IFS= read -r line; do
+        [[ "$line" =~ ^#.*$ || -z "$line" ]] && continue
+        arr+=("$line")
+    done < "$file"
+}
+
+###############################################################################
 # System Setup (runs in Docker container)
 ###############################################################################
 
@@ -63,10 +90,10 @@ setup_build_env() {
     
     # Initialize pacman keyring
     pacman-key --init
-    pacman --noconfirm -Sy archlinux-keyring
+    retry pacman --noconfirm -Sy archlinux-keyring
     
     # Install build dependencies (these go in the build container, not the ISO)
-    pacman --noconfirm -Sy archiso git sudo base-devel jq grub
+    retry pacman --noconfirm -Sy archiso git sudo base-devel jq grub
     
     # Create build user for any AUR packages we need to compile
     if ! id "builder" &>/dev/null; then
@@ -84,79 +111,28 @@ setup_build_env() {
 collect_packages() {
     log_step "Collecting package lists"
     
-    # Compositor packages
     local compositor_dir="$SRC_DIR/compositors/$COMPOSITOR"
     
     # Official packages
-    if [[ -f "$compositor_dir/packages.txt" ]]; then
-        log_sub "Adding official packages from $COMPOSITOR"
-        while IFS= read -r line; do
-            [[ "$line" =~ ^#.*$ || -z "$line" ]] && continue
-            ALL_PACKAGES+=("$line")
-        done < "$compositor_dir/packages.txt"
-    fi
+    read_package_list "$compositor_dir/packages.txt" ALL_PACKAGES
+    read_package_list "$SRC_DIR/shared/packages.txt" ALL_PACKAGES
     
     # AUR packages
-    if [[ -f "$compositor_dir/packages-aur.txt" && -z "$SKIP_AUR" ]]; then
-        log_sub "Adding AUR packages from $COMPOSITOR"
-        while IFS= read -r line; do
-            [[ "$line" =~ ^#.*$ || -z "$line" ]] && continue
-            AUR_PACKAGES+=("$line")
-        done < "$compositor_dir/packages-aur.txt"
+    if [[ -z "$SKIP_AUR" ]]; then
+        read_package_list "$compositor_dir/packages-aur.txt" AUR_PACKAGES
+        read_package_list "$SRC_DIR/shared/packages-aur.txt" AUR_PACKAGES
     fi
     
-    # Flatpak packages  
-    if [[ -f "$compositor_dir/packages-flatpak.txt" && -z "$SKIP_FLATPAK" ]]; then
-        log_sub "Adding Flatpak packages from $COMPOSITOR"
-        while IFS= read -r line; do
-            [[ "$line" =~ ^#.*$ || -z "$line" ]] && continue
-            FLATPAK_PACKAGES+=("$line")
-        done < "$compositor_dir/packages-flatpak.txt"
+    # Flatpak packages
+    if [[ -z "$SKIP_FLATPAK" ]]; then
+        read_package_list "$compositor_dir/packages-flatpak.txt" FLATPAK_PACKAGES
+        read_package_list "$SRC_DIR/shared/packages-flatpak.txt" FLATPAK_PACKAGES
     fi
     
     # AppImage packages
-    if [[ -f "$compositor_dir/packages-appimage.txt" && -z "$SKIP_APPIMAGE" ]]; then
-        log_sub "Adding AppImages from $COMPOSITOR"
-        while IFS= read -r line; do
-            [[ "$line" =~ ^#.*$ || -z "$line" ]] && continue
-            APPIMAGE_PACKAGES+=("$line")
-        done < "$compositor_dir/packages-appimage.txt"
-    fi
-    
-    # Shared packages
-    if [[ -f "$SRC_DIR/shared/packages.txt" ]]; then
-        log_sub "Adding shared official packages"
-        while IFS= read -r line; do
-            [[ "$line" =~ ^#.*$ || -z "$line" ]] && continue
-            ALL_PACKAGES+=("$line")
-        done < "$SRC_DIR/shared/packages.txt"
-    fi
-
-    # Shared AUR packages
-    if [[ -f "$SRC_DIR/shared/packages-aur.txt" && -z "$SKIP_AUR" ]]; then
-        log_sub "Adding shared AUR packages"
-        while IFS= read -r line; do
-            [[ "$line" =~ ^#.*$ || -z "$line" ]] && continue
-            AUR_PACKAGES+=("$line")
-        done < "$SRC_DIR/shared/packages-aur.txt"
-    fi
-
-    # Shared Flatpak packages
-    if [[ -f "$SRC_DIR/shared/packages-flatpak.txt" && -z "$SKIP_FLATPAK" ]]; then
-        log_sub "Adding shared Flatpak packages"
-        while IFS= read -r line; do
-            [[ "$line" =~ ^#.*$ || -z "$line" ]] && continue
-            FLATPAK_PACKAGES+=("$line")
-        done < "$SRC_DIR/shared/packages-flatpak.txt"
-    fi
-
-    # Shared AppImage packages
-    if [[ -f "$SRC_DIR/shared/packages-appimage.txt" && -z "$SKIP_APPIMAGE" ]]; then
-        log_sub "Adding shared AppImages"
-        while IFS= read -r line; do
-            [[ "$line" =~ ^#.*$ || -z "$line" ]] && continue
-            APPIMAGE_PACKAGES+=("$line")
-        done < "$SRC_DIR/shared/packages-appimage.txt"
+    if [[ -z "$SKIP_APPIMAGE" ]]; then
+        read_package_list "$compositor_dir/packages-appimage.txt" APPIMAGE_PACKAGES
+        read_package_list "$SRC_DIR/shared/packages-appimage.txt" APPIMAGE_PACKAGES
     fi
     
     # Remove duplicates
@@ -212,10 +188,7 @@ download_packages() {
     
     # Get packages from the base releng packages.x86_64
     local releng_packages=()
-    while IFS= read -r line; do
-        [[ "$line" =~ ^#.*$ || -z "$line" ]] && continue
-        releng_packages+=("$line")
-    done < "$PROFILE_DIR/packages.x86_64"
+    read_package_list "$PROFILE_DIR/packages.x86_64" releng_packages
     
     # Combine all packages: releng base + our additions
     local all_download_packages=("${releng_packages[@]}" "${ALL_PACKAGES[@]}")
@@ -231,8 +204,8 @@ download_packages() {
     # pacman -Syw skips packages already present in --cachedir,
     # so only new/updated packages are actually downloaded
     mkdir -p /tmp/offlinedb
-    pacman --noconfirm -Sy --dbpath /tmp/offlinedb
-    pacman --noconfirm -Syw "${all_download_packages[@]}" \
+    retry pacman --noconfirm -Sy --dbpath /tmp/offlinedb
+    retry pacman --noconfirm -Syw "${all_download_packages[@]}" \
         --cachedir "$OFFLINE_MIRROR_DIR/" \
         --dbpath /tmp/offlinedb
     
@@ -304,10 +277,17 @@ create_repo_database() {
         exit 1
     fi
     
-    # Create repo database
+    # Create repo database (match .zst and .xz, exclude .sig files)
     log_info "Creating repository database with $pkg_count packages..."
-    repo-add --new "$OFFLINE_MIRROR_DIR/offline.db.tar.gz" "$OFFLINE_MIRROR_DIR/"*.pkg.tar.zst 2>/dev/null || \
-    repo-add --new "$OFFLINE_MIRROR_DIR/offline.db.tar.gz" "$OFFLINE_MIRROR_DIR/"*.pkg.tar.* || {
+    local pkg_files=()
+    for f in "$OFFLINE_MIRROR_DIR/"*.pkg.tar.{zst,xz}; do
+        [[ -f "$f" ]] && pkg_files+=("$f")
+    done
+    if [[ ${#pkg_files[@]} -eq 0 ]]; then
+        log_error "No .pkg.tar.zst or .pkg.tar.xz files found!"
+        exit 1
+    fi
+    repo-add --new "$OFFLINE_MIRROR_DIR/offline.db.tar.gz" "${pkg_files[@]}" || {
         log_error "Failed to create repo database"
         exit 1
     }
@@ -452,12 +432,8 @@ build_st() {
     cd "$build_dir"
 
     log_info "Compiling st ($COMPOSITOR)..."
-    # Ensure config.h and patches.h exist (shipped in source tree) and are newer
-    # than .def.h so Make doesn't overwrite them with defaults
-    [[ -f "$build_dir/config.h" ]]  || cp "$build_dir/config.def.h" "$build_dir/config.h"
-    [[ -f "$build_dir/patches.h" ]] || cp "$build_dir/patches.def.h" "$build_dir/patches.h"
-    sleep 0.1
-    touch "$build_dir/config.h" "$build_dir/patches.h"
+    # Always regenerate from .def.h (config.def.h is the source of truth)
+    rm -f "$build_dir/config.h" "$build_dir/patches.h"
     make -j"$(nproc)"
 
     # Install binary and terminfo into the ISO
@@ -533,9 +509,10 @@ setup_airootfs() {
     mkdir -p "$airootfs/opt/flatpaks"
     mkdir -p "$airootfs/var/cache/smplos/mirror"
     
-    # Copy offline repository to airootfs
-    log_info "Copying offline repository to airootfs..."
-    cp -r "$OFFLINE_MIRROR_DIR" "$airootfs/var/cache/smplos/mirror/offline"
+    # Symlink offline mirror into airootfs (mkarchiso follows symlinks into squashfs)
+    # This avoids duplicating ~500MB of packages during the build
+    log_info "Linking offline repository into airootfs..."
+    ln -sf "$OFFLINE_MIRROR_DIR" "$airootfs/var/cache/smplos/mirror/offline"
     
     # Copy shared bin scripts
     if [[ -d "$SRC_DIR/shared/bin" ]]; then
