@@ -105,7 +105,8 @@ archinstall
 openssl
 
 # ── Login Manager / Boot Splash ──────────────────────────────
-sddm
+greetd
+greetd-tuigreet
 plymouth
 
 # ── Applications ─────────────────────────────────────────────

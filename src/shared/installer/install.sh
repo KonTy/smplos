@@ -97,23 +97,25 @@ if [[ -n "$default_wp" ]]; then
   cp "$default_wp" "$HOME/Pictures/Wallpapers/$(basename "$default_wp")"
 fi
 
-# Setup SDDM autologin
-echo "==> Setting up SDDM autologin..."
-sudo mkdir -p /etc/sddm.conf.d
+# Setup greetd with autologin
+echo "==> Setting up greetd autologin..."
+sudo mkdir -p /etc/greetd
 
-if [[ ! -f /etc/sddm.conf.d/autologin.conf ]]; then
-  cat <<EOF | sudo tee /etc/sddm.conf.d/autologin.conf
-[Autologin]
-User=$USER
-Session=hyprland
+cat <<EOF | sudo tee /etc/greetd/config.toml
+[terminal]
+vt = 1
 
-[Theme]
-Current=breeze
+[default_session]
+command = "tuigreet --remember-session --cmd start-hyprland"
+user = "greeter"
+
+[initial_session]
+command = "start-hyprland"
+user = "$USER"
 EOF
-fi
 
-# Enable SDDM (don't use chrootable here as --now will cause issues)
-sudo systemctl enable sddm.service
+# Enable greetd
+sudo systemctl enable greetd.service
 
 # Setup Plymouth if installed
 if command -v plymouth-set-default-theme &>/dev/null; then
@@ -160,10 +162,6 @@ EOF
   # Rebuild initramfs to include plymouth and new hooks
   sudo mkinitcpio -P
 fi
-
-# Disable systemd-networkd-wait-online to prevent boot timeout
-sudo systemctl disable systemd-networkd-wait-online.service 2>/dev/null || true
-sudo systemctl mask systemd-networkd-wait-online.service 2>/dev/null || true
 
 # Restore standard pacman.conf (remove offline mirror, point to real repos)
 echo "==> Restoring standard pacman configuration..."

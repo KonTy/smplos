@@ -555,9 +555,13 @@ setup_airootfs() {
         log_info "Copying shared icons"
         mkdir -p "$skel/.config/eww/icons"
         cp -r "$SRC_DIR/shared/icons/"* "$skel/.config/eww/icons/" 2>/dev/null || true
-        # Also to smplos install path
+        # Also to smplos install path (for install.sh → ~/.config/eww/icons/)
         mkdir -p "$airootfs/root/smplos/config/eww/icons"
         cp -r "$SRC_DIR/shared/icons/"* "$airootfs/root/smplos/config/eww/icons/" 2>/dev/null || true
+        # SVG templates for theme-set to bake on theme switch
+        # theme-set reads from ~/.local/share/smplos/icons/status/
+        mkdir -p "$airootfs/root/smplos/icons"
+        cp -r "$SRC_DIR/shared/icons/"* "$airootfs/root/smplos/icons/" 2>/dev/null || true
     fi
 
     # Deploy default wallpaper (catppuccin theme)

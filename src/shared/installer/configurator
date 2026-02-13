@@ -481,7 +481,7 @@ cat <<-_EOF_ >user_configuration.json
     },
     "hostname": "$hostname",
     "kernels": [ "$kernel_choice" ],
-    "network_config": { "type": "iso" },
+    "network_config": { "type": "nm" },
     "ntp": true,
     "parallel_downloads": 8,
     "script": null,
