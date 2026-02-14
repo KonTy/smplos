@@ -304,7 +304,7 @@ EOF
     # Create user
     log "Creating user $USERNAME..."
     arch-chroot "$MOUNT_POINT" useradd -m -G wheel,video,audio,input -s /bin/bash "$USERNAME"
-    echo "$USERNAME:$PASSWORD" | arch-chroot "$MOUNT_POINT" chpasswd
+    printf '%s\n' "$USERNAME:$PASSWORD" | arch-chroot "$MOUNT_POINT" chpasswd
     
     # Configure sudo
     echo "%wheel ALL=(ALL:ALL) ALL" > "$MOUNT_POINT/etc/sudoers.d/wheel"

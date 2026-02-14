@@ -295,9 +295,9 @@ echo "$full_name" >user_full_name.txt
 echo "$email_address" >user_email_address.txt
 
 # Escape username and password for safe inclusion in JSON
-password_escaped=$(echo -n "$password" | jq -Rsa)
-password_hash_escaped=$(echo -n "$password_hash" | jq -Rsa)
-username_escaped=$(echo -n "$username" | jq -Rsa)
+password_escaped=$(printf '%s' "$password" | jq -Rsa)
+password_hash_escaped=$(printf '%s' "$password_hash" | jq -Rsa)
+username_escaped=$(printf '%s' "$username" | jq -Rsa)
 
 cat <<-_EOF_ >user_credentials.json
 {
