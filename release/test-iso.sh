@@ -23,7 +23,7 @@ need() {
     fi
 }
 
-need qemu-system-x86_64
+need qemu-system-x86
 need qemu-img
 need wmctrl
 
