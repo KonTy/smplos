@@ -272,6 +272,17 @@ build_missing_aur_packages() {
                 echo \"==> Building \$pkg...\"
                 retry sudo -u builder git clone \"https://aur.archlinux.org/\$pkg.git\"
                 cd \"\$pkg\"
+                # Import any PGP keys required by the package
+                if grep -q 'validpgpkeys' PKGBUILD; then
+                    grep -A 20 'validpgpkeys=' PKGBUILD \
+                        | grep -oP '[0-9A-F]{16,}' \
+                        | while read -r key; do
+                            echo \"==> Importing GPG key: \$key\"
+                            sudo -u builder gpg --keyserver keyserver.ubuntu.com --recv-keys \"\$key\" 2>/dev/null \
+                                || sudo -u builder gpg --keyserver keys.openpgp.org --recv-keys \"\$key\" 2>/dev/null \
+                                || echo \"WARN: could not import key \$key\"
+                        done
+                fi
                 sudo -u builder makepkg -s --noconfirm
                 cp *.pkg.tar.* /output/
                 cd ..
