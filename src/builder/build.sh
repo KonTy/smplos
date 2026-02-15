@@ -1104,12 +1104,12 @@ set gfxpayload=keep
 # Function to load initrd with optional microcode
 # Microcode may be bundled in initramfs or separate files
 menuentry "smplOS (Hyprland)" --class arch --class gnu-linux --class gnu --class os {
-    linux /%INSTALL_DIR%/boot/x86_64/vmlinuz-linux-zen archisobasedir=%INSTALL_DIR% archisosearchuuid=%ARCHISO_UUID% quiet splash
+    linux /%INSTALL_DIR%/boot/x86_64/vmlinuz-linux-zen archisobasedir=%INSTALL_DIR% archisosearchuuid=%ARCHISO_UUID% quiet splash mce=dont_log_ce
     initrd /%INSTALL_DIR%/boot/x86_64/initramfs-linux-zen.img
 }
 
 menuentry "smplOS (Safe Mode)" --class arch --class gnu-linux --class gnu --class os {
-    linux /%INSTALL_DIR%/boot/x86_64/vmlinuz-linux-zen archisobasedir=%INSTALL_DIR% archisosearchuuid=%ARCHISO_UUID% nomodeset
+    linux /%INSTALL_DIR%/boot/x86_64/vmlinuz-linux-zen archisobasedir=%INSTALL_DIR% archisosearchuuid=%ARCHISO_UUID% nomodeset mce=dont_log_ce
     initrd /%INSTALL_DIR%/boot/x86_64/initramfs-linux-zen.img
 }
 GRUBCFG
@@ -1141,13 +1141,13 @@ LABEL arch
     MENU LABEL smplOS (Hyprland)
     LINUX /%INSTALL_DIR%/boot/x86_64/vmlinuz-linux-zen
     INITRD /%INSTALL_DIR%/boot/x86_64/initramfs-linux-zen.img
-    APPEND archisobasedir=%INSTALL_DIR% archisosearchuuid=%ARCHISO_UUID% quiet splash
+    APPEND archisobasedir=%INSTALL_DIR% archisosearchuuid=%ARCHISO_UUID% quiet splash mce=dont_log_ce
 
 LABEL arch_safe
     MENU LABEL smplOS (Safe Mode)
     LINUX /%INSTALL_DIR%/boot/x86_64/vmlinuz-linux-zen
     INITRD /%INSTALL_DIR%/boot/x86_64/initramfs-linux-zen.img
-    APPEND archisobasedir=%INSTALL_DIR% archisosearchuuid=%ARCHISO_UUID% nomodeset
+    APPEND archisobasedir=%INSTALL_DIR% archisosearchuuid=%ARCHISO_UUID% nomodeset mce=dont_log_ce
 ARCHISOSYS
     
     log_info "Boot configuration updated"

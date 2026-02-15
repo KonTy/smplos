@@ -127,20 +127,7 @@ step_password() {
   done
 }
 
-# STEP 4: FULL NAME + EMAIL
-step_identity() {
-  step "Git identity (optional)..."
-
-  local name email
-  name=$(gum input --placeholder "Used for git authentication (hit return to skip)" --placeholder.foreground="#006600" --prompt.foreground="#00ff00" --prompt "Full name> " --value "${full_name:-}") || return 1
-  email=$(gum input --placeholder "Used for git authentication (hit return to skip)" --placeholder.foreground="#006600" --prompt.foreground="#00ff00" --prompt "Email address> " --value "${email_address:-}") || return 1
-
-  full_name="$name"
-  email_address="$email"
-  return 0
-}
-
-# STEP 5: HOSTNAME
+# STEP 4: HOSTNAME
 step_hostname() {
   step "Choose a hostname..."
 
@@ -161,7 +148,7 @@ step_hostname() {
   done
 }
 
-# STEP 6: TIMEZONE
+# STEP 5: TIMEZONE
 step_timezone() {
   step "Select your timezone..."
 
@@ -171,15 +158,13 @@ step_timezone() {
   return 0
 }
 
-# STEP 7: REVIEW
+# STEP 6: REVIEW
 step_review() {
   step "Review your settings..."
 
   echo -e "Field,Value
 Username,$username
 Password,$(printf "%${#password}s" | tr ' ' '*')
-Full name,${full_name:-[Skipped]}
-Email address,${email_address:-[Skipped]}
 Hostname,$hostname
 Timezone,$timezone
 Keyboard,$keyboard" |
@@ -193,7 +178,7 @@ Keyboard,$keyboard" |
   fi
 }
 
-# STEP 8: DISK SELECTION
+# STEP 7: DISK SELECTION
 
 get_disk_info() {
   local device="$1"
@@ -239,7 +224,7 @@ step_disk() {
   return 0
 }
 
-# STEP 9: DISK CONFIRMATION
+# STEP 8: DISK CONFIRMATION
 step_disk_confirm() {
   step "Confirm disk selection..."
 
@@ -261,7 +246,6 @@ steps=(
   step_keyboard
   step_username
   step_password
-  step_identity
   step_hostname
   step_timezone
   step_review
@@ -289,10 +273,6 @@ while (( current_step < total_steps )); do
 done
 
 clear
-
-# Save user full name and email address
-echo "$full_name" >user_full_name.txt
-echo "$email_address" >user_email_address.txt
 
 # Escape username and password for safe inclusion in JSON
 password_escaped=$(printf '%s' "$password" | jq -Rsa)
@@ -520,11 +500,5 @@ if [[ $1 == "dry" ]]; then
   echo -e "\n\nUser Credentials:"
   cat user_credentials.json
 
-  echo -e "\n\nUser Full Name:"
-  cat user_full_name.txt
-
-  echo -e "\nUser Email Address:"
-  cat user_email_address.txt
-
-  rm user_configuration.json user_credentials.json user_full_name.txt user_email_address.txt
+  rm user_configuration.json user_credentials.json
 fi

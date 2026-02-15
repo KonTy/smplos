@@ -179,7 +179,7 @@ EOF
   if [[ -f /etc/default/grub ]]; then
     # Ensure cleaner boot logs
     if ! grep -q "splash" /etc/default/grub; then
-      sudo sed -i 's/^GRUB_CMDLINE_LINUX_DEFAULT="\(.*\)"/GRUB_CMDLINE_LINUX_DEFAULT="\1 quiet splash loglevel=3 rd.udev.log_level=3 vt.global_cursor_default=0"/' /etc/default/grub
+      sudo sed -i 's/^GRUB_CMDLINE_LINUX_DEFAULT="\(.*\)"/GRUB_CMDLINE_LINUX_DEFAULT="\1 quiet splash loglevel=3 rd.udev.log_level=3 vt.global_cursor_default=0 mce=dont_log_ce"/' /etc/default/grub
     fi
     
     # Branding: Set GRUB Distributor to smplOS
