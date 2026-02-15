@@ -1,0 +1,63 @@
+#!/bin/bash
+# smplOS settings dispatcher -- opens the appropriate settings tool
+# Called by the launcher cache entries (smplos-settings <category>)
+# Detects compositor and available tools at runtime.
+
+die() { notify-send "smplOS Settings" "$1"; exit 1; }
+
+term() {
+  if [[ -n "$WAYLAND_DISPLAY" ]]; then st-wl -e "$@"
+  else st -e "$@"; fi
+}
+
+case "${1:-}" in
+  appearance)
+    theme-picker
+    ;;
+
+  display)
+    if [[ -n "$WAYLAND_DISPLAY" ]]; then
+      command -v wdisplays &>/dev/null && exec wdisplays
+      command -v nwg-displays &>/dev/null && exec nwg-displays
+      command -v wlr-randr &>/dev/null && exec term wlr-randr
+      die "No display tool found (install wdisplays)"
+    else
+      command -v arandr &>/dev/null && exec arandr
+      command -v lxrandr &>/dev/null && exec lxrandr
+      die "No display tool found (install arandr)"
+    fi
+    ;;
+
+  network)
+    command -v nm-connection-editor &>/dev/null && exec nm-connection-editor
+    command -v nmtui &>/dev/null && exec term nmtui
+    die "No network manager UI found"
+    ;;
+
+  bluetooth)
+    command -v blueman-manager &>/dev/null && exec blueman-manager
+    command -v bluetuith &>/dev/null && exec term bluetuith
+    die "No bluetooth manager found (install blueman)"
+    ;;
+
+  audio)
+    command -v pavucontrol &>/dev/null && exec pavucontrol
+    command -v pulsemixer &>/dev/null && exec term pulsemixer
+    die "No audio manager found (install pavucontrol)"
+    ;;
+
+  power)
+    powermenu
+    ;;
+
+  about)
+    local_ver=""
+    [[ -f /etc/smplos-release ]] && local_ver=$(cat /etc/smplos-release)
+    notify-send "smplOS" "Version: ${local_ver:-dev}\nKernel: $(uname -r)\nUptime: $(uptime -p | sed 's/up //')"
+    ;;
+
+  *)
+    echo "Usage: smplos-settings {appearance|display|network|bluetooth|audio|power|about}" >&2
+    exit 1
+    ;;
+esac

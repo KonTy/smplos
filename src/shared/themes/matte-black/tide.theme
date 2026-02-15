@@ -1,0 +1,42 @@
+# Tide prompt colors for matte-black
+# Applied by theme-set — overrides Tide rainbow defaults
+
+# Core prompt segments
+set -U tide_pwd_bg_color E68E0D
+set -U tide_pwd_color_anchors 121212
+set -U tide_pwd_color_dirs 121212
+set -U tide_pwd_color_truncated_dirs 121212
+
+set -U tide_git_bg_color FFC107
+set -U tide_git_bg_color_unstable E68E0D
+set -U tide_git_bg_color_urgent D35F5F
+set -U tide_git_color_branch 121212
+set -U tide_git_color_conflicted 121212
+set -U tide_git_color_dirty 121212
+set -U tide_git_color_operation 121212
+set -U tide_git_color_staged 121212
+set -U tide_git_color_stash 121212
+set -U tide_git_color_untracked 121212
+set -U tide_git_color_upstream 121212
+
+set -U tide_character_color FFC107
+set -U tide_character_color_failure D35F5F
+
+set -U tide_cmd_duration_bg_color E68E0D
+set -U tide_cmd_duration_color 121212
+
+set -U tide_status_bg_color 1E1E1E
+set -U tide_status_bg_color_failure D35F5F
+set -U tide_status_color FFC107
+set -U tide_status_color_failure E68E0D
+
+set -U tide_prompt_color_frame_and_connection 8A8A8D
+set -U tide_prompt_color_separator_same_color 8A8A8D
+
+set -U tide_context_bg_color 1E1E1E
+set -U tide_context_color_default BEBEBE
+set -U tide_context_color_root E68E0D
+set -U tide_context_color_ssh BEBEBE
+
+set -U tide_jobs_bg_color 1E1E1E
+set -U tide_jobs_color FFC107

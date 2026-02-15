@@ -1,0 +1,178 @@
+#!/bin/bash
+# smplOS: Apply theme colors to Double Commander
+# Called by theme-set after copying theme files into place.
+#
+# DC stores colors in colors.json with Delphi TColor format:
+#   Positive values = BGR decimal ($BBGGRR as decimal)
+#   Negative values = system color constants (reference OS theme)
+#
+# DC reads colors.json on start and overwrites it on close. It CANNOT
+# live-reload. Strategy: write the file when DC is not running, or
+# kill + relaunch if it is.
+#
+# Panel/UI colors come from the smplOS theme palette. Syntax highlighter
+# colors are bundled from DC defaults (dc-highlighters.json).
+
+CURRENT_THEME_PATH="${CURRENT_THEME_PATH:-$HOME/.config/smplos/current/theme}"
+COLORS_FILE="$CURRENT_THEME_PATH/colors.toml"
+DC_CONFIG_DIR="${DC_CONFIG_DIR:-$HOME/.config/doublecmd}"
+DC_COLORS="$DC_CONFIG_DIR/colors.json"
+SMPLOS_PATH="${SMPLOS_PATH:-$HOME/.local/share/smplos}"
+STOCK_HL="$SMPLOS_PATH/dc-highlighters.json"
+# Fallback: check next to the smplos config dir (installed location)
+[[ -f "$STOCK_HL" ]] || STOCK_HL="$HOME/.config/smplos/dc-highlighters.json"
+
+[[ -f "$COLORS_FILE" ]] || exit 0
+# Skip doublecmd check when generating at build time
+[[ -n "$SMPLOS_BUILD" ]] || command -v doublecmd &>/dev/null || exit 0
+
+# --- Helpers ---
+
+get_color() {
+  sed -n "s/^${1}[[:space:]]*=[[:space:]]*[\"']\(.*\)[\"']/\1/p" "$COLORS_FILE" | head -1
+}
+
+hex_to_bgr() {
+  local h="${1#\#}"
+  echo $(( 16#${h:4:2} * 65536 + 16#${h:2:2} * 256 + 16#${h:0:2} ))
+}
+
+darken() {
+  local h="${1#\#}" p="$2"
+  printf "#%02x%02x%02x" $(( 16#${h:0:2}*(100-p)/100 )) $(( 16#${h:2:2}*(100-p)/100 )) $(( 16#${h:4:2}*(100-p)/100 ))
+}
+
+# --- Read theme palette ---
+bg=$(get_color background);         bg=${bg:-#1e1e2e}
+fg=$(get_color foreground);          fg=${fg:-#cdd6f4}
+accent=$(get_color accent);          accent=${accent:-#89b4fa}
+bg_light=$(get_color bg_light);      bg_light=${bg_light:-#45475a}
+bg_lighter=$(get_color bg_lighter);  bg_lighter=${bg_lighter:-#585b70}
+color1=$(get_color color1);          color1=${color1:-#f38ba8}
+color2=$(get_color color2);          color2=${color2:-#a6e3a1}
+color3=$(get_color color3);          color3=${color3:-#f9e2af}
+color4=$(get_color color4);          color4=${color4:-#89b4fa}
+color8=$(get_color color8);          color8=${color8:-#585b70}
+
+# --- Pre-compute all BGR values ---
+B=$(hex_to_bgr "$bg")
+F=$(hex_to_bgr "$fg")
+A=$(hex_to_bgr "$accent")
+BT=$(hex_to_bgr "$bg")          # cursor text = bg
+BL=$(hex_to_bgr "$bg_light")
+BLR=$(hex_to_bgr "$bg_lighter")
+MK=$(hex_to_bgr "$color1")
+IMK=$(hex_to_bgr "$(darken "$color1" 30)")
+C1=$(hex_to_bgr "$color1")
+C2=$(hex_to_bgr "$color2")
+C3=$(hex_to_bgr "$color3")
+C4=$(hex_to_bgr "$color4")
+C8=$(hex_to_bgr "$color8")
+
+# --- Kill DC before writing (it overwrites on close) ---
+dc_was_running=false
+if [[ -z "$SMPLOS_BUILD" ]] && pgrep -x doublecmd &>/dev/null; then
+  dc_was_running=true
+  pkill -x doublecmd 2>/dev/null
+  sleep 0.5
+fi
+
+mkdir -p "$DC_CONFIG_DIR"
+
+# --- Column block (all 5 Default columns are identical) ---
+col() {
+  local u="$1" t="$2"
+  printf '            { Unique : "%s", Title : "%s",\n' "$u" "$t"
+  printf '              TextColor : %d, Background : %d, Background2 : %d,\n' "$F" "$B" "$B"
+  printf '              MarkColor : %d, CursorColor : %d, CursorText : %d,\n' "$MK" "$A" "$BT"
+  printf '              InactiveCursorColor : %d, InactiveMarkColor : %d }' "$BLR" "$IMK"
+}
+
+# --- Emit one complete style (Light or Dark) ---
+emit_style() {
+  local name="$1" tag="$2"
+  cat <<S
+    {
+      Name : "$name",
+      FilePanel : {
+        CursorBorderColor : $A, ForeColor : $F,
+        BackColor : $B, BackColor2 : $B,
+        MarkColor : $MK, CursorColor : $A, CursorText : $BT,
+        GridLine : $BL, InactiveCursorColor : $BLR, InactiveMarkColor : $IMK
+      },
+      FreeSpaceIndicator : { ForeColor : $F, BackColor : $B, ThresholdForeColor : $C1 },
+      Path : {
+        ActiveColor : $A, ActiveFontColor : $BT,
+        InactiveColor : $BL, InactiveFontColor : $F
+      },
+      Log : { InfoColor : $C4, ErrorColor : $C1, SuccessColor : $C2 },
+      SyncDirs : { LeftColor : $C2, RightColor : $C4, UnknownColor : $C1 },
+      Viewer : {
+        ImageBackColor1 : $B, ImageBackColor2 : 536870912,
+        BookBackgroundColor : $B, BookFontColor : $F
+      },
+      Differ : { AddedColor : $C2, DeletedColor : $C1, ModifiedColor : $C4, ModifiedBinaryColor : $C1 },
+      TreeViewMenu : {
+        BackgroundColor : $BL, ShortcutColor : $C1,
+        NormalTextColor : $F, SecondaryTextColor : $C8,
+        FoundTextColor : $A, UnselectableTextColor : $C8,
+        CursorColor : $A, ShortcutUnderCursor : $BT,
+        NormalTextUnderCursor : $BT, SecondaryTextUnderCursor : $BL,
+        FoundTextUnderCursor : $C3, UnselectableUnderCursor : $C8
+      },
+      ColumnSets : [
+        {
+          Unique : "7EB8B4B6-2BA8-4AEA-8D09-DD1F653F7D3F",
+          Name : "Default",
+          CursorBorderColor : $A,
+          Columns : [
+S
+  col "524DDEC9-0F21-4334-A3A1-0C7807B2DD66" "Name"; echo ","
+  col "B1E3585C-C88D-4DC9-9E31-BADEF3C15E9D" "Ext";  echo ","
+  col "8DB70BCB-C535-4826-B597-3C394B70506F" "Size"; echo ","
+  col "FD4660C9-B863-454F-8FBD-589C6B8C548D" "Date"; echo ","
+  col "08676BA1-BA20-4D15-BDD7-CB6DAAFB3777" "Attr"; echo ""
+  cat <<S
+          ]
+        },
+        {
+          Unique : "F788BA03-5379-4EAD-BD5B-CC2AE32C954A",
+          Name : "<Trash>",
+          CursorBorderColor : 0,
+          Columns : [
+            { Unique : "3E4124FA-14AF-4070-8805-52E3E94DF8FB", Title : "Name",
+              TextColor:0,Background:0,Background2:0,MarkColor:0,CursorColor:0,CursorText:0,InactiveCursorColor:0,InactiveMarkColor:0 },
+            { Unique : "995EE375-B831-40F5-A286-7C82B4D29735", Title : "Ext",
+              TextColor:0,Background:0,Background2:0,MarkColor:0,CursorColor:0,CursorText:0,InactiveCursorColor:0,InactiveMarkColor:0 },
+            { Unique : "77EE8EBF-7A71-4FA1-9422-706836FA0FF5", Title : "Original path",
+              TextColor:0,Background:0,Background2:0,MarkColor:0,CursorColor:0,CursorText:0,InactiveCursorColor:0,InactiveMarkColor:0 }
+          ]
+        }
+      ],
+S
+  # Append highlighters from stock file, or empty arrays
+  if [[ -f "$STOCK_HL" ]]; then
+    sed -n "/^## ${tag}_HL_START/,/^## ${tag}_HL_END/{ /^##/d; p; }" "$STOCK_HL"
+    sed -n "/^## ${tag}_UHL_START/,/^## ${tag}_UHL_END/{ /^##/d; p; }" "$STOCK_HL"
+  else
+    printf '      Highlighters : [],\n      UniHighlighters : []\n'
+  fi
+  echo "    }"
+}
+
+# --- Write colors.json ---
+{
+  echo "{"
+  echo "  Styles : ["
+  emit_style "Light" "LIGHT"
+  echo "    ,"
+  emit_style "Dark" "DARK"
+  echo "  ],"
+  echo "  FileColors : []"
+  echo "}"
+} > "$DC_COLORS"
+
+# Relaunch DC if it was running
+if $dc_was_running; then
+  nohup doublecmd &>/dev/null &
+fi

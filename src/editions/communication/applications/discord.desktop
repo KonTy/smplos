@@ -1,0 +1,10 @@
+[Desktop Entry]
+Version=1.0
+Name=Discord
+Comment=Chat, voice & video -- web app
+Exec=launch-webapp https://discord.com/channels/@me
+Terminal=false
+Type=Application
+Icon=discord
+Categories=Network;Chat;
+StartupNotify=true

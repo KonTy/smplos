@@ -1,0 +1,34 @@
+#!/bin/bash
+# smplOS: Launch a URL as a standalone web app (Chromium --app mode)
+# Usage: launch-webapp <url>
+#
+# Each webapp gets its own isolated profile (--user-data-dir) so cookies,
+# logins, and local storage don't cross-contaminate with normal browsing
+# or other webapps. Profiles live under ~/.local/share/webapps/<name>/.
+#
+# Uses the default browser if it supports --app (Brave, Chrome, Chromium,
+# Edge, etc.), otherwise falls back to brave-browser.
+
+[[ -z "$1" ]] && { echo "Usage: launch-webapp <url>" >&2; exit 1; }
+
+# Derive a stable profile name from the URL's domain
+app_name=$(echo "$1" | sed 's|https\?://||; s|/.*||; s|^www\.||; s|\..*||')
+profile_dir="$HOME/.local/share/webapps/$app_name"
+mkdir -p "$profile_dir"
+
+browser=$(xdg-settings get default-web-browser 2>/dev/null)
+
+case "$browser" in
+  brave-browser*|google-chrome*|chromium*|microsoft-edge*|vivaldi*|opera*) ;;
+  *) browser="brave-browser.desktop" ;;
+esac
+
+# Extract the Exec binary from the .desktop file
+bin=$(sed -n 's/^Exec=\([^ ]*\).*/\1/p' \
+  "$HOME/.local/share/applications/$browser" \
+  "/usr/share/applications/$browser" \
+  2>/dev/null | head -1)
+
+[[ -z "$bin" ]] && bin="brave"
+
+exec "$bin" --app="$1" --user-data-dir="$profile_dir"

@@ -138,16 +138,13 @@ fn main() -> Result<(), slint::PlatformError> {
     }
 
     {
-        let ui_weak = ui.as_weak();
         let state = state.clone();
         ui.on_activate(move |id| {
-            if let Some(n) = state.borrow().iter().find(|n| n.id == id) {
-                open_notification(&n.appname, &n.desktop_entry);
-            }
-            if let Some(ui) = ui_weak.upgrade() {
-                ui.hide().ok();
-            }
-            std::process::exit(0);
+            let _ = state
+                .borrow()
+                .iter()
+                .find(|n| n.id == id)
+                .map(|n| open_notification(&n.appname, &n.desktop_entry, &n.action));
         });
     }
 

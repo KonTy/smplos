@@ -1,0 +1,42 @@
+# Tide prompt colors for hackerman
+# Applied by theme-set — overrides Tide rainbow defaults
+
+# Core prompt segments
+set -U tide_pwd_bg_color 82FB9C
+set -U tide_pwd_color_anchors 0B0C16
+set -U tide_pwd_color_dirs 0B0C16
+set -U tide_pwd_color_truncated_dirs 0B0C16
+
+set -U tide_git_bg_color 4FE88F
+set -U tide_git_bg_color_unstable 50F7D4
+set -U tide_git_bg_color_urgent 829DD4
+set -U tide_git_color_branch 0B0C16
+set -U tide_git_color_conflicted 0B0C16
+set -U tide_git_color_dirty 0B0C16
+set -U tide_git_color_operation 0B0C16
+set -U tide_git_color_staged 0B0C16
+set -U tide_git_color_stash 0B0C16
+set -U tide_git_color_untracked 0B0C16
+set -U tide_git_color_upstream 0B0C16
+
+set -U tide_character_color 4FE88F
+set -U tide_character_color_failure 829DD4
+
+set -U tide_cmd_duration_bg_color 50F7D4
+set -U tide_cmd_duration_color 0B0C16
+
+set -U tide_status_bg_color 181A2A
+set -U tide_status_bg_color_failure 829DD4
+set -U tide_status_color 4FE88F
+set -U tide_status_color_failure 50F7D4
+
+set -U tide_prompt_color_frame_and_connection 6A6E95
+set -U tide_prompt_color_separator_same_color 6A6E95
+
+set -U tide_context_bg_color 181A2A
+set -U tide_context_color_default DDF7FF
+set -U tide_context_color_root 50F7D4
+set -U tide_context_color_ssh DDF7FF
+
+set -U tide_jobs_bg_color 181A2A
+set -U tide_jobs_color 4FE88F

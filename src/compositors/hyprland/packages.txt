@@ -28,5 +28,8 @@ wlr-randr
 # ── Wayland Wallpaper ────────────────────────────────────────
 swaybg
 
+# ── Wayland Launcher ──────────────────────────────────────────
+rofi-wayland
+
 # ── Wayland Image Viewer ─────────────────────────────────────
 imv

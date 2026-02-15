@@ -95,10 +95,10 @@ if [[ -f "$CURRENT_THEME_PATH/foot.ini" ]]; then
   cp "$CURRENT_THEME_PATH/foot.ini" "$HOME/.config/foot/theme.ini"
 fi
 
-# Link rofi theme
-if [[ -f "$CURRENT_THEME_PATH/rofi.rasi" ]]; then
-  mkdir -p "$HOME/.config/rofi"
-  cp "$CURRENT_THEME_PATH/rofi.rasi" "$HOME/.config/rofi/smplos.rasi"
+# Link rofi theme (single file used by launcher + all dialogs)
+mkdir -p "$HOME/.config/rofi"
+if [[ -f "$CURRENT_THEME_PATH/smplos-launcher.rasi" ]]; then
+  cp "$CURRENT_THEME_PATH/smplos-launcher.rasi" "$HOME/.config/rofi/smplos-launcher.rasi"
 fi
 
 # st (suckless terminal) -- colors applied at runtime via OSC escape sequences
@@ -114,6 +114,11 @@ fi
 if [[ -f "$CURRENT_THEME_PATH/fish.theme" ]]; then
   mkdir -p "$HOME/.config/fish"
   cp "$CURRENT_THEME_PATH/fish.theme" "$HOME/.config/fish/theme.fish"
+fi
+
+# Apply Tide prompt theme (set universal variables so Tide picks them up immediately)
+if [[ -f "$CURRENT_THEME_PATH/tide.theme" ]] && command -v fish &>/dev/null; then
+  fish -c "source '$CURRENT_THEME_PATH/tide.theme'; tide reload" &>/dev/null || true
 fi
 
 # Set wallpaper from theme backgrounds
@@ -145,6 +150,9 @@ fi
 # st / st-wl -- apply colors via OSC escape sequences to all running instances
 theme-set-st 2>/dev/null &
 
+# Double Commander — regenerate colors.json from theme palette
+theme-set-dc 2>/dev/null &
+
 # Foot terminal — reload via SIGUSR1 (if running)
 if pgrep -x foot >/dev/null; then
   killall -SIGUSR1 foot 2>/dev/null
@@ -164,20 +172,67 @@ fi
 # APP-SPECIFIC THEMES — optional integrations
 # =========================================================================
 
-# GTK / Icon theme (GNOME settings, works for all GTK apps)
-if command -v gsettings &>/dev/null; then
-  if [[ -f "$CURRENT_THEME_PATH/light.mode" ]]; then
-    gsettings set org.gnome.desktop.interface color-scheme "prefer-light" 2>/dev/null
-    gsettings set org.gnome.desktop.interface gtk-theme "Adwaita" 2>/dev/null
-  else
-    gsettings set org.gnome.desktop.interface color-scheme "prefer-dark" 2>/dev/null
-    gsettings set org.gnome.desktop.interface gtk-theme "Adwaita-dark" 2>/dev/null
-  fi
+# GTK / Icon theme + cursor
+if [[ -f "$CURRENT_THEME_PATH/light.mode" ]]; then
+  _gtk_theme="Adwaita"
+  _color_scheme="prefer-light"
+  _dark_pref=0
+  _gtk_env="Adwaita"
+  _cursor_theme="Breeze_Light"
+else
+  _gtk_theme="Adwaita-dark"
+  _color_scheme="prefer-dark"
+  _dark_pref=1
+  _gtk_env="Adwaita:dark"
+  _cursor_theme="breeze_cursors"
+fi
 
+# dconf/GSettings (primary on Wayland — GTK3/4 read from here)
+if command -v gsettings &>/dev/null; then
+  gsettings set org.gnome.desktop.interface color-scheme "$_color_scheme" 2>/dev/null
+  gsettings set org.gnome.desktop.interface gtk-theme "$_gtk_theme" 2>/dev/null
+  gsettings set org.gnome.desktop.interface cursor-theme "$_cursor_theme" 2>/dev/null
   if [[ -f "$CURRENT_THEME_PATH/icons.theme" ]]; then
     gsettings set org.gnome.desktop.interface icon-theme "$(<"$CURRENT_THEME_PATH/icons.theme")" 2>/dev/null
   fi
 fi
+
+# Set cursor theme for Hyprland + env
+export XCURSOR_THEME="$_cursor_theme"
+if command -v hyprctl &>/dev/null && [[ -n "${WAYLAND_DISPLAY:-}" ]]; then
+  hyprctl setcursor "$_cursor_theme" 24 2>/dev/null || true
+fi
+
+# settings.ini (fallback for X11 and apps that don't use dconf)
+# Always gtk-theme-name=Adwaita — the "Adwaita-dark" theme doesn't exist as an
+# installed theme. Dark variant is activated by gtk-application-prefer-dark-theme
+# (settings.ini) and color-scheme (dconf). The gsettings gtk-theme key can hold
+# "Adwaita-dark" because GTK's GSettings codepath special-cases it, but the
+# settings.ini parser does not.
+for _gtk_dir in "$HOME/.config/gtk-3.0" "$HOME/.config/gtk-4.0"; do
+  mkdir -p "$_gtk_dir"
+  cat > "$_gtk_dir/settings.ini" << EOF
+[Settings]
+gtk-theme-name=Adwaita
+gtk-application-prefer-dark-theme=$_dark_pref
+gtk-icon-theme-name=Adwaita
+gtk-font-name=JetBrains Mono 11
+gtk-cursor-theme-name=$_cursor_theme
+EOF
+done
+
+# GTK_THEME env var — forces GTK file dialogs (xdg-desktop-portal-gtk) dark/light.
+# gsettings alone is unreliable on non-GNOME desktops; this is the direct override.
+export GTK_THEME="$_gtk_env"
+# Persist for systemd user services (portals start before Hyprland env import)
+mkdir -p "$HOME/.config/environment.d"
+printf 'GTK_THEME=%s\nXCURSOR_THEME=%s\n' "$_gtk_env" "$_cursor_theme" > "$HOME/.config/environment.d/gtk.conf"
+# Push to Hyprland + systemd so portal services see the change without reboot
+command -v hyprctl &>/dev/null && hyprctl setenv GTK_THEME "$GTK_THEME" 2>/dev/null || true
+command -v hyprctl &>/dev/null && hyprctl setenv XCURSOR_THEME "$_cursor_theme" 2>/dev/null || true
+systemctl --user import-environment GTK_THEME XCURSOR_THEME 2>/dev/null || true
+# Restart portal-gtk so it picks up the new GTK_THEME
+systemctl --user restart xdg-desktop-portal-gtk 2>/dev/null || true
 
 # Neovim — deploy lazy.nvim colorscheme spec
 if [[ -f "$CURRENT_THEME_PATH/neovim.lua" ]]; then
@@ -213,6 +268,70 @@ if [[ -f "$CURRENT_THEME_PATH/vscode.json" ]]; then
   _set_vscode_theme "code" "$HOME/.config/Code/User/settings.json"
   _set_vscode_theme "codium" "$HOME/.config/VSCodium/User/settings.json"
   _set_vscode_theme "cursor" "$HOME/.config/Cursor/User/settings.json"
+fi
+
+# Logseq — switch theme via preferences.json (Logseq watches this file)
+# Theme plugins are pre-installed in ~/.logseq/plugins/
+_logseq_prefs="$HOME/.logseq/preferences.json"
+if [[ -d "$HOME/.logseq/plugins" ]]; then
+  _lp="$HOME/.logseq/plugins"
+
+  # Detect dark vs light from marker file
+  _lq_mode=dark
+  [[ -f "$CURRENT_THEME_PATH/light.mode" ]] && _lq_mode=light
+
+  # Map smplOS theme names to Logseq plugin themes
+  # URL must be assets:// + absolute path to the CSS file inside the plugin dir
+  _lq_name="" _lq_css="" _lq_pid=""
+  case "$THEME_NAME" in
+    catppuccin)       _lq_name="Catppuccin Mocha"          _lq_css="$_lp/logseq-catppuccin/ctp-mocha.css"              _lq_pid=logseq-catppuccin ;;
+    catppuccin-latte) _lq_name="Catppuccin Latte"          _lq_css="$_lp/logseq-catppuccin/ctp-latte.css"              _lq_pid=logseq-catppuccin ;;
+    tokyo-night)      _lq_name="Tokyo Night"               _lq_css="$_lp/tokyo-night/tokyo.css"                        _lq_pid=tokyo-night ;;
+    everforest)       _lq_name="Everforest Dark Medium"    _lq_css="$_lp/logseq-everforest-theme/everforest-dark-medium.css" _lq_pid=logseq-everforest-theme ;;
+    rose-pine)        _lq_name="Rosé Pine Dawn"            _lq_css="$_lp/logseq-rose-pine-theme/src/rose-pine-dawn.css" _lq_pid=logseq-rose-pine-theme ;;
+    flexoki-light)    _lq_name="Flexoki Light"             _lq_css="$_lp/logseq-flexoki-theme/flexoki-theme.css"        _lq_pid=logseq-flexoki-theme ;;
+    hackerman)        _lq_name="Matrix AMOLED Dark"        _lq_css="$_lp/logseq-matrixamoled-theme/matrix.css"          _lq_pid=logseq-matrixamoled-theme ;;
+    matte-black)      _lq_name="D42ker Logseq"             _lq_css="$_lp/logseq-d42ker-theme/custom.css"               _lq_pid=logseq-d42ker-theme ;;
+    gruvbox)          _lq_name="Everforest Dark Soft"      _lq_css="$_lp/logseq-everforest-theme/everforest-dark-soft.css" _lq_pid=logseq-everforest-theme ;;
+    kanagawa)         _lq_name="Rosé Pine"                 _lq_css="$_lp/logseq-rose-pine-theme/src/rose-pine.css"      _lq_pid=logseq-rose-pine-theme ;;
+    nord)             _lq_name="Rosé Pine Moon"            _lq_css="$_lp/logseq-rose-pine-theme/src/rose-pine-moon.css" _lq_pid=logseq-rose-pine-theme ;;
+    osaka-jade)       _lq_name="Everforest Dark Hard"      _lq_css="$_lp/logseq-everforest-theme/everforest-dark-hard.css" _lq_pid=logseq-everforest-theme ;;
+    ristretto)        _lq_name="Catppuccin Macchiato"      _lq_css="$_lp/logseq-catppuccin/ctp-macchiato.css"           _lq_pid=logseq-catppuccin ;;
+    ethereal)         _lq_name="Catppuccin Mocha"          _lq_css="$_lp/logseq-catppuccin/ctp-mocha.css"              _lq_pid=logseq-catppuccin ;;
+  esac
+
+  if [[ -n "$_lq_pid" ]]; then
+    # Write preferences.json with plugin theme + correct dark/light mode
+    cat > "$_logseq_prefs" <<EOF
+{
+  "theme": {
+    "name": "$_lq_name",
+    "url": "assets://$_lq_css",
+    "mode": "$_lq_mode",
+    "pid": "$_lq_pid"
+  },
+  "themes": {
+    "mode": "$_lq_mode"
+  },
+  "externals": []
+}
+EOF
+  else
+    # No plugin for this theme — just set dark/light mode, clear plugin theme
+    cat > "$_logseq_prefs" <<EOF
+{
+  "themes": {
+    "mode": "$_lq_mode"
+  },
+  "externals": []
+}
+EOF
+  fi
+
+  # Also write custom.css for themes without a plugin (gruvbox, kanagawa, nord, etc.)
+  if [[ -f "$CURRENT_THEME_PATH/logseq-custom.css" ]]; then
+    cp "$CURRENT_THEME_PATH/logseq-custom.css" "$HOME/.logseq/custom.css"
+  fi
 fi
 
 # Chromium / Brave -- set browser toolbar color and dark/light mode

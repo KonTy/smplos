@@ -1,0 +1,79 @@
+#!/bin/bash
+# smplOS: System update -- pacman, AUR, Flatpak, AppImage
+# Launched by notif-center "System Update" action or manually.
+# Opens in the user's default terminal.
+
+# Find the default terminal emulator
+# Priority: xdg-terminal-exec > st-wl (Wayland) > st (X11) > foot > xterm
+find_terminal() {
+    if command -v xdg-terminal-exec &>/dev/null; then
+        echo "xdg-terminal-exec"
+    elif [[ -n "$WAYLAND_DISPLAY" ]] && command -v st-wl &>/dev/null; then
+        echo "st-wl"
+    elif command -v st &>/dev/null; then
+        echo "st"
+    elif command -v foot &>/dev/null; then
+        echo "foot"
+    elif command -v xterm &>/dev/null; then
+        echo "xterm"
+    fi
+}
+
+TERM_CMD=$(find_terminal)
+if [[ -z "$TERM_CMD" ]]; then
+    notify-send "smplOS Update" "No terminal emulator found"
+    exit 1
+fi
+
+UPDATE_SCRIPT=$(mktemp /tmp/smplos-update.XXXXXX.sh)
+cat > "$UPDATE_SCRIPT" << 'EOF'
+#!/bin/bash
+echo "══════════════════════════════════════"
+echo "  smplOS System Update"
+echo "══════════════════════════════════════"
+echo
+
+# 1. Official repos
+echo "── Pacman ──"
+sudo pacman -Syu --noconfirm
+echo
+
+# 2. AUR packages (paru)
+if command -v paru &>/dev/null; then
+    echo "── AUR (paru) ──"
+    paru -Sua --noconfirm
+    echo
+fi
+
+# 3. Flatpak
+if command -v flatpak &>/dev/null; then
+    installed=$(flatpak list --app 2>/dev/null | wc -l)
+    if [[ "$installed" -gt 0 ]]; then
+        echo "── Flatpak ──"
+        flatpak update -y --noninteractive
+        echo
+    fi
+fi
+
+# 4. AppImages
+appimage_dirs=("$HOME/Applications" "$HOME/AppImages")
+for dir in "${appimage_dirs[@]}"; do
+    if compgen -G "$dir/*.AppImage" &>/dev/null || compgen -G "$dir/*.appimage" &>/dev/null; then
+        echo "── AppImages ──"
+        echo "AppImages must be updated manually."
+        echo "Check your AppImage sources for new versions."
+        echo
+        break
+    fi
+done
+
+echo "══════════════════════════════════════"
+echo "  Update complete!"
+echo "══════════════════════════════════════"
+echo
+read -rp "Press Enter to close..."
+EOF
+chmod +x "$UPDATE_SCRIPT"
+
+# xdg-terminal-exec uses -e by default, st/foot also use -e
+exec "$TERM_CMD" -e "$UPDATE_SCRIPT"

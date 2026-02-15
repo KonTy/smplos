@@ -15,6 +15,7 @@ set -g fish_color_selection --background=f2e9e1
 set -g fish_color_operator d7827e
 set -g fish_color_escape 907aa9
 set -g fish_color_autosuggestion 9893a5
+set -g fish_color_search_match 56949f --background=f2e9e1
 set -g fish_color_valid_path --underline
 
 # Pager (tab completion menu)
@@ -23,3 +24,6 @@ set -g fish_pager_color_prefix 56949f --bold --underline
 set -g fish_pager_color_completion 575279
 set -g fish_pager_color_description 9893a5
 set -g fish_pager_color_selected_background --background=f2e9e1
+set -g fish_pager_color_selected_completion 575279
+set -g fish_pager_color_selected_prefix 56949f --bold --underline
+set -g fish_pager_color_selected_description 9893a5

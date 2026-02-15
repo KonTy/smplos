@@ -1,0 +1,42 @@
+# Tide prompt colors for kanagawa
+# Applied by theme-set — overrides Tide rainbow defaults
+
+# Core prompt segments
+set -U tide_pwd_bg_color 7E9CD8
+set -U tide_pwd_color_anchors 1F1F28
+set -U tide_pwd_color_dirs 1F1F28
+set -U tide_pwd_color_truncated_dirs 1F1F28
+
+set -U tide_git_bg_color 76946A
+set -U tide_git_bg_color_unstable C0A36E
+set -U tide_git_bg_color_urgent C34043
+set -U tide_git_color_branch 1F1F28
+set -U tide_git_color_conflicted 1F1F28
+set -U tide_git_color_dirty 1F1F28
+set -U tide_git_color_operation 1F1F28
+set -U tide_git_color_staged 1F1F28
+set -U tide_git_color_stash 1F1F28
+set -U tide_git_color_untracked 1F1F28
+set -U tide_git_color_upstream 1F1F28
+
+set -U tide_character_color 76946A
+set -U tide_character_color_failure C34043
+
+set -U tide_cmd_duration_bg_color C0A36E
+set -U tide_cmd_duration_color 1F1F28
+
+set -U tide_status_bg_color 2A2A37
+set -U tide_status_bg_color_failure C34043
+set -U tide_status_color 76946A
+set -U tide_status_color_failure C0A36E
+
+set -U tide_prompt_color_frame_and_connection 727169
+set -U tide_prompt_color_separator_same_color 727169
+
+set -U tide_context_bg_color 2A2A37
+set -U tide_context_color_default DCD7BA
+set -U tide_context_color_root C0A36E
+set -U tide_context_color_ssh DCD7BA
+
+set -U tide_jobs_bg_color 2A2A37
+set -U tide_jobs_color 76946A

@@ -1,0 +1,10 @@
+[Desktop Entry]
+Version=1.0
+Name=YouTube
+Comment=Video streaming -- web app
+Exec=launch-webapp https://www.youtube.com
+Terminal=false
+Type=Application
+Icon=youtube
+Categories=AudioVideo;Video;Network;
+StartupNotify=true

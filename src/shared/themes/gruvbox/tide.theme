@@ -1,0 +1,42 @@
+# Tide prompt colors for gruvbox
+# Applied by theme-set — overrides Tide rainbow defaults
+
+# Core prompt segments
+set -U tide_pwd_bg_color 7DAEA3
+set -U tide_pwd_color_anchors 282828
+set -U tide_pwd_color_dirs 282828
+set -U tide_pwd_color_truncated_dirs 282828
+
+set -U tide_git_bg_color A9B665
+set -U tide_git_bg_color_unstable D8A657
+set -U tide_git_bg_color_urgent EA6962
+set -U tide_git_color_branch 282828
+set -U tide_git_color_conflicted 282828
+set -U tide_git_color_dirty 282828
+set -U tide_git_color_operation 282828
+set -U tide_git_color_staged 282828
+set -U tide_git_color_stash 282828
+set -U tide_git_color_untracked 282828
+set -U tide_git_color_upstream 282828
+
+set -U tide_character_color A9B665
+set -U tide_character_color_failure EA6962
+
+set -U tide_cmd_duration_bg_color D8A657
+set -U tide_cmd_duration_color 282828
+
+set -U tide_status_bg_color 3C3836
+set -U tide_status_bg_color_failure EA6962
+set -U tide_status_color A9B665
+set -U tide_status_color_failure D8A657
+
+set -U tide_prompt_color_frame_and_connection 928374
+set -U tide_prompt_color_separator_same_color 928374
+
+set -U tide_context_bg_color 3C3836
+set -U tide_context_color_default D4BE98
+set -U tide_context_color_root D8A657
+set -U tide_context_color_ssh D4BE98
+
+set -U tide_jobs_bg_color 3C3836
+set -U tide_jobs_color A9B665

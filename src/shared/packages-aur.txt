@@ -2,7 +2,7 @@
 # These packages are built from the Arch User Repository
 
 # AUR helper (so users can install AUR packages after install)
-yay
+paru-bin
 
 # EWW - Universal widget system (works on Wayland and X11)
 # Note: eww-bin has a PKGBUILD bug, using regular eww (requires Rust compilation)

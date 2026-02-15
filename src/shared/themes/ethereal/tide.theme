@@ -1,0 +1,42 @@
+# Tide prompt colors for ethereal
+# Applied by theme-set — overrides Tide rainbow defaults
+
+# Core prompt segments
+set -U tide_pwd_bg_color 7D82D9
+set -U tide_pwd_color_anchors 060B1E
+set -U tide_pwd_color_dirs 060B1E
+set -U tide_pwd_color_truncated_dirs 060B1E
+
+set -U tide_git_bg_color 92A593
+set -U tide_git_bg_color_unstable E9BB4F
+set -U tide_git_bg_color_urgent ED5B5A
+set -U tide_git_color_branch 060B1E
+set -U tide_git_color_conflicted 060B1E
+set -U tide_git_color_dirty 060B1E
+set -U tide_git_color_operation 060B1E
+set -U tide_git_color_staged 060B1E
+set -U tide_git_color_stash 060B1E
+set -U tide_git_color_untracked 060B1E
+set -U tide_git_color_upstream 060B1E
+
+set -U tide_character_color 92A593
+set -U tide_character_color_failure ED5B5A
+
+set -U tide_cmd_duration_bg_color E9BB4F
+set -U tide_cmd_duration_color 060B1E
+
+set -U tide_status_bg_color 141932
+set -U tide_status_bg_color_failure ED5B5A
+set -U tide_status_color 92A593
+set -U tide_status_color_failure E9BB4F
+
+set -U tide_prompt_color_frame_and_connection 6D7DB6
+set -U tide_prompt_color_separator_same_color 6D7DB6
+
+set -U tide_context_bg_color 141932
+set -U tide_context_color_default FFCEAD
+set -U tide_context_color_root E9BB4F
+set -U tide_context_color_ssh FFCEAD
+
+set -U tide_jobs_bg_color 141932
+set -U tide_jobs_color 92A593

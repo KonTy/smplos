@@ -70,9 +70,12 @@ fi
 [[ -s "$CACHE" ]] || { notify-send "Keybind Help" "No keybindings found"; exit 1; }
 
 # Show in rofi (read-only display, no action on selection)
-ROFI_THEME="$HOME/.config/rofi/smplos.rasi"
-rofi_args=(-dmenu -i -p "Keys" -matching fuzzy -sorting-method fzf)
+# -normal-window makes it an XDG toplevel so Hyprland applies popin animation
+# (layer surfaces all share namespace "rofi" = launcher's slide-left)
+ROFI_THEME="$HOME/.config/rofi/smplos-launcher.rasi"
+CENTER_STR='window { location: center; anchor: center; width: 560px; }'
+rofi_args=(-dmenu -i -p "Keys" -matching fuzzy -sorting-method fzf -normal-window -steal-focus)
 rofi_args+=(-mesg "Super+K  Keybindings  --  type to filter")
-[[ -f "$ROFI_THEME" ]] && rofi_args+=(-theme "$ROFI_THEME")
+[[ -f "$ROFI_THEME" ]] && rofi_args+=(-theme "$ROFI_THEME" -theme-str "$CENTER_STR")
 
 rofi "${rofi_args[@]}" < "$CACHE" >/dev/null 2>&1

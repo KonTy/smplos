@@ -29,10 +29,12 @@ for i in "${!themes[@]}"; do
   lines+=("$name")
 done
 
-# Theme file for rofi (use smplOS theme if available, else default)
-ROFI_THEME="$HOME/.config/rofi/smplos.rasi"
-rofi_args=(-dmenu -i -p "Theme" -matching fuzzy -sorting-method fzf -selected-row "$active_idx")
-[[ -f "$ROFI_THEME" ]] && rofi_args+=(-theme "$ROFI_THEME")
+# Theme file for rofi (same as launcher, centered for dialogs)
+# -normal-window makes it an XDG toplevel so Hyprland applies popin animation
+ROFI_THEME="$HOME/.config/rofi/smplos-launcher.rasi"
+CENTER_STR='window { location: center; anchor: center; width: 560px; }'
+rofi_args=(-dmenu -i -p "Theme" -matching fuzzy -sorting-method fzf -selected-row "$active_idx" -normal-window -steal-focus)
+[[ -f "$ROFI_THEME" ]] && rofi_args+=(-theme "$ROFI_THEME" -theme-str "$CENTER_STR")
 
 choice=$(printf '%s\n' "${lines[@]}" | rofi "${rofi_args[@]}")
 [[ -z "$choice" ]] && exit 0

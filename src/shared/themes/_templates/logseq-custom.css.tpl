@@ -1,0 +1,62 @@
+/* smplOS theme — auto-generated, do not edit manually */
+
+:root {
+  --ls-primary-background-color: {{ background }} !important;
+  --ls-secondary-background-color: {{ bg_light }} !important;
+  --ls-tertiary-background-color: {{ bg_lighter }} !important;
+  --ls-quaternary-background-color: {{ bg_lighter }} !important;
+
+  --ls-primary-text-color: {{ foreground }} !important;
+  --ls-secondary-text-color: {{ color8 }} !important;
+
+  --ls-link-text-color: {{ accent }} !important;
+  --ls-link-text-hover-color: {{ color12 }} !important;
+  --ls-active-primary-color: {{ accent }} !important;
+  --ls-active-secondary-color: {{ accent }} !important;
+
+  --ls-border-color: {{ color0 }} !important;
+  --ls-secondary-border-color: {{ bg_lighter }} !important;
+
+  --ls-selection-background-color: {{ selection_background }} !important;
+  --ls-block-highlight-color: {{ bg_light }} !important;
+  --ls-page-properties-background-color: {{ bg_light }} !important;
+  --ls-block-properties-background-color: {{ bg_light }} !important;
+  --ls-table-tr-even-background-color: {{ bg_light }} !important;
+  --ls-page-inline-code-bg-color: {{ bg_light }} !important;
+
+  --ls-focus-ring-color: {{ accent }} !important;
+  --ls-a-chosen-bg: {{ bg_light }} !important;
+  --ls-page-checkbox-color: {{ accent }} !important;
+  --ls-page-checkbox-border-color: {{ color8 }} !important;
+
+  --ls-guideline-color: {{ color0 }} !important;
+  --ls-block-bullet-color: {{ color8 }} !important;
+
+  --ls-scrollbar-foreground-color: {{ bg_lighter }} !important;
+  --ls-scrollbar-background-color: {{ background }} !important;
+
+  --ls-head-text-color: {{ foreground }} !important;
+  --ls-icon-color: {{ color8 }} !important;
+
+  --color-level-1: {{ background }} !important;
+  --color-level-2: {{ bg_light }} !important;
+  --color-level-3: {{ bg_lighter }} !important;
+
+  --ls-highlight-color-gray: {{ bg_lighter }} !important;
+  --ls-highlight-color-red: {{ color1 }} !important;
+  --ls-highlight-color-green: {{ color2 }} !important;
+  --ls-highlight-color-blue: {{ color4 }} !important;
+  --ls-highlight-color-yellow: {{ color3 }} !important;
+  --ls-highlight-color-purple: {{ color5 }} !important;
+  --ls-highlight-color-pink: {{ color5 }} !important;
+
+  --ls-cloze-text-color: {{ accent }} !important;
+}
+
+/* Override code mirror / code block backgrounds */
+.CodeMirror,
+.cm-s-solarized,
+.extensions__code .code-editor {
+  background-color: {{ bg_light }} !important;
+  color: {{ foreground }} !important;
+}

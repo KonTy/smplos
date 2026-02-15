@@ -23,8 +23,19 @@ set_wallpaper() {
   # No display (install/chroot) — skip wallpaper silently
 }
 
-# Gather all background images from theme + user dirs
-mapfile -d '' -t BACKGROUNDS < <(find -L "$USER_BACKGROUNDS" "$THEME_BACKGROUNDS" "$FALLBACK_BACKGROUNDS" -maxdepth 1 -type f \( -name '*.jpg' -o -name '*.png' -o -name '*.jpeg' -o -name '*.webp' \) -print0 2>/dev/null | sort -z -u)
+# Gather background images — theme-specific dirs only, fallback only if empty
+_bg_dirs=()
+[[ -d "$USER_BACKGROUNDS" ]] && _bg_dirs+=("$USER_BACKGROUNDS")
+[[ -d "$THEME_BACKGROUNDS" ]] && _bg_dirs+=("$THEME_BACKGROUNDS")
+
+mapfile -d '' -t BACKGROUNDS < <(
+  [[ ${#_bg_dirs[@]} -gt 0 ]] && find -L "${_bg_dirs[@]}" -maxdepth 1 -type f \( -name '*.jpg' -o -name '*.png' -o -name '*.jpeg' -o -name '*.webp' \) -print0 2>/dev/null | sort -z -u
+)
+
+# Only fall back to ~/Pictures/Wallpapers if the theme has no backgrounds at all
+if [[ ${#BACKGROUNDS[@]} -eq 0 && -d "$FALLBACK_BACKGROUNDS" ]]; then
+  mapfile -d '' -t BACKGROUNDS < <(find -L "$FALLBACK_BACKGROUNDS" -maxdepth 1 -type f \( -name '*.jpg' -o -name '*.png' -o -name '*.jpeg' -o -name '*.webp' \) -print0 2>/dev/null | sort -z -u)
+fi
 
 if [[ ${#BACKGROUNDS[@]} -eq 0 ]]; then
   # No backgrounds - use solid color from theme
@@ -33,15 +44,16 @@ if [[ ${#BACKGROUNDS[@]} -eq 0 ]]; then
   exit 0
 fi
 
-# Find current background index
-current=$(readlink "$CURRENT_BG_LINK" 2>/dev/null)
-next_index=0
-for i in "${!BACKGROUNDS[@]}"; do
-  if [[ "${BACKGROUNDS[$i]}" == "$current" ]]; then
-    next_index=$(( (i + 1) % ${#BACKGROUNDS[@]} ))
-    break
-  fi
-done
+# Pick a random background (avoid repeating the current one)
+current_name=$(basename "$(readlink "$CURRENT_BG_LINK" 2>/dev/null)" 2>/dev/null)
+if [[ ${#BACKGROUNDS[@]} -le 1 ]]; then
+  next_index=0
+else
+  while true; do
+    next_index=$(( RANDOM % ${#BACKGROUNDS[@]} ))
+    [[ "$(basename "${BACKGROUNDS[$next_index]}")" != "$current_name" ]] && break
+  done
+fi
 
 # Update symlink
 mkdir -p "$(dirname "$CURRENT_BG_LINK")"

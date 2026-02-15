@@ -1,0 +1,252 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<doublecmd>
+  <History>
+    <Navigation>
+      <Item>/home/blin/.config/doublecmd/</Item>
+      <Item>/home/blin/.config/</Item>
+      <Item>/home/blin/</Item>
+      <Item>/home/blin/Pictures/</Item>
+      <Item>/home/blin/Documents/sources/smplos/src/shared/configs/smplos/branding/plymouth/</Item>
+      <Item>/home/blin/Documents/sources/smplos/src/shared/configs/smplos/branding/</Item>
+      <Item>/home/blin/Documents/sources/smplos/src/shared/configs/smplos/</Item>
+      <Item>/home/blin/Documents/sources/smplos/src/shared/configs/</Item>
+      <Item>/home/blin/Documents/sources/smplos/src/shared/</Item>
+      <Item>/home/blin/Documents/sources/smplOS/src/</Item>
+      <Item>/home/blin/Documents/sources/smplOs/</Item>
+      <Item>/home/blin/Documents/sources/</Item>
+      <Item>/home/blin/Documents/sources/smplos/src/shared/notif-center/</Item>
+      <Item>/home/blin/Documents/sources/smplos/src/shared/notif-center/target/</Item>
+      <Item>/home/blin/Documents/sources/smplos/release/</Item>
+      <Item>/home/blin/Documents/sources/smplos/src/shared/notif-center/ui/</Item>
+      <Item>/home/blin/Documents/sources/smplos/src/shared/notif-center/target/release/</Item>
+      <Item>/home/blin/Documents/sources/smplos/src/shared/notif-center/target/release/build/</Item>
+      <Item>/home/blin/Documents/sources/smplos/src/shared/notif-center/target/release/examples/</Item>
+      <Item>/home/blin/Documents/sources/smplos/release/vmshare/</Item>
+      <Item>/home/blin/Documents/sources/smplos/src/shared/eww/</Item>
+      <Item>/home/blin/Documents/sources/smplos/src/shared/eww/scripts/</Item>
+      <Item>/home/blin/Documents/sources/smplos/src/shared/themes/</Item>
+      <Item>/home/blin/Documents/sources/smplos/src/shared/themes/catppuccin/</Item>
+      <Item>/home/blin/Documents/sources/smplos/src/builder/</Item>
+      <Item>/home/blin/Documents/sources/smplos/src/iso/</Item>
+      <Item>/home/blin/Documents/sources/smplos/src/shared/bin/</Item>
+      <Item>/home/blin/Documents/sources/smplos/src/shared/skel/</Item>
+      <Item>/home/blin/Documents/sources/smplos/src/shared/configs/rofi/themes/</Item>
+      <Item>/home/blin/Documents/</Item>
+      <Item>/home/</Item>
+      <Item>/</Item>
+      <Item>/run/</Item>
+      <Item>/home/blin/Documents/sources/smplos/release//</Item>
+      <Item>/home/blin/.local/</Item>
+      <Item>/home/blin/.local/share/</Item>
+      <Item>/home/blin/.local/share/Trash/</Item>
+      <Item>/home/blin/Documents/backup/</Item>
+      <Item>/home/blin/Documents/sources/smplos/src/shared/skel/.config/</Item>
+      <Item>/home/blin/Documents/sources/smplos/release/vmshare/themes/</Item>
+      <Item>/home/blin/Documents/sources/smplos/release/vmshare/eww/</Item>
+      <Item>/home/blin/Documents/sources/smplos/release/vmshare/hypr/</Item>
+      <Item>/home/blin/Documents/sources/st-wl/</Item>
+      <Item>/home/blin/Documents/sources/smplos/src/shared/skel/.config/fish/</Item>
+      <Item>/home/blin/Documents/sources/smplos/src/shared/configs/fish/</Item>
+      <Item>/home/blin/Documents/sources/tide/</Item>
+      <Item>/home/blin/Documents/sources/tide/functions/</Item>
+      <Item>/home/blin/Documents/sources/smplos/src/shared/configs/fish/functions/</Item>
+      <Item>/home/blin/Documents/sources/tide/conf.d/</Item>
+      <Item>/home/blin/Documents/sources/smplos/src/compositors/</Item>
+    </Navigation>
+    <CommandLine>
+      <Item>cd /home/blin/Documents/sources/image_preference_tool/ </Item>
+      <Item>codium /home/blin/.local/share/plasma/look-and-feel/MatrixBlack/plasma/desktoptheme/Matrix_OLED/widgets/panel-background.txt </Item>
+      <Item>cd ~/.local/share/plasma/look-and-feel/</Item>
+      <Item>cd /Home</Item>
+    </CommandLine>
+    <FileMask>
+      <Item>logo.png</Item>
+      <Item>logo</Item>
+      <Item>st</Item>
+      <Item>rofi-</Item>
+      <Item>tide_user</Item>
+      <Item>eww.yuck</Item>
+      <Item>binding</Item>
+      <Item>binding.con</Item>
+      <Item>plymou</Item>
+      <Item>*.iso</Item>
+      <Item>audio</Item>
+      <Item>audio.sh</Item>
+      <Item>release</Item>
+      <Item>*4-x86_64.iso*</Item>
+      <Item>profiledef.sh</Item>
+      <Item>archmat-installer.service</Item>
+      <Item>archmat-installer</Item>
+      <Item>pacman</Item>
+      <Item>*</Item>
+      <Item>profiledef.sh</Item>
+      <Item>profiledef.sh  </Item>
+      <Item>loader</Item>
+      <Item>loader.conf</Item>
+      <Item>*.html</Item>
+      <Item>*.sh</Item>
+      <Item>skye</Item>
+      <Item>Valerica</Item>
+      <Item>gianna</Item>
+      <Item>giana</Item>
+      <Item>vina </Item>
+      <Item>Janice griffith</Item>
+      <Item>dredd</Item>
+      <Item>who are</Item>
+      <Item>zch</Item>
+      <Item>*.json</Item>
+      <Item>*.vcf</Item>
+      <Item>zshr</Item>
+      <Item>*energize*</Item>
+      <Item>*Energize*</Item>
+      <Item>Energize</Item>
+      <Item>ener</Item>
+      <Item>*.colors</Item>
+      <Item>sta</Item>
+      <Item>AI</Item>
+      <Item>levin</Item>
+      <Item>*.mp3</Item>
+      <Item>matrixi</Item>
+      <Item>retrohack</Item>
+      <Item>matrix</Item>
+      <Item>matrix\</Item>
+    </FileMask>
+    <VolumeSize/>
+    <CreateDirectories>
+      <Item Tag="0">backup</Item>
+      <Item Tag="0">fish</Item>
+      <Item Tag="0">.config</Item>
+      <Item Tag="0">st</Item>
+      <Item Tag="0">dwm</Item>
+      <Item Tag="0">smplOs</Item>
+      <Item Tag="0">archmet-post</Item>
+      <Item Tag="0">[0]incomming</Item>
+      <Item Tag="0">hyprArch</Item>
+      <Item Tag="0">ommarchy</Item>
+      <Item Tag="0">iso-profile</Item>
+      <Item Tag="0">packages</Item>
+      <Item Tag="0">scripts</Item>
+      <Item Tag="0">add</Item>
+      <Item Tag="0">overlay</Item>
+      <Item Tag="0">omarchy-lite</Item>
+      <Item Tag="0">logs</Item>
+      <Item Tag="0">[0]docs</Item>
+      <Item Tag="0">patch</Item>
+      <Item Tag="0">root</Item>
+    </CreateDirectories>
+    <SearchText>
+      <Item Tag="0">ButtonBar Enabled="False"&gt;</Item>
+      <Item Tag="0">&lt;Toolbar&gt;</Item>
+      <Item Tag="0">toolba</Item>
+      <Item Tag="0">display</Item>
+      <Item Tag="0">smplos</Item>
+      <Item Tag="0">image</Item>
+      <Item Tag="0">iamge</Item>
+      <Item Tag="0">zx</Item>
+      <Item Tag="0">xz</Item>
+      <Item Tag="0">mydistro</Item>
+      <Item Tag="0">permissioncontroller.extra</Item>
+      <Item Tag="0">.permissioncontroller.extra</Item>
+      <Item Tag="0">onetimeinitializer</Item>
+      <Item Tag="0">android.onetimeinitializer</Item>
+      <Item Tag="0">com.google.android.configupdater</Item>
+      <Item Tag="0">com.google.android.onetimeinitializer</Item>
+      <Item Tag="0">.android.gms.phenotype</Item>
+      <Item Tag="0">e.android.gsf</Item>
+      <Item Tag="0">ogle.android.gms</Item>
+      <Item Tag="0">com.google.android.gm</Item>
+      <Item Tag="0">com.google.android.photopicker</Item>
+      <Item Tag="0">com.google.android.permissioncontroller.extra</Item>
+      <Item Tag="0">gms.vision</Item>
+      <Item Tag="0">ms.phenotype</Item>
+      <Item Tag="0">android.gsf</Item>
+      <Item Tag="0">android.gms</Item>
+      <Item Tag="0">gms.phenotype</Item>
+      <Item Tag="0">.maps</Item>
+      <Item Tag="0">apps.maps</Item>
+      <Item Tag="0">export</Item>
+      <Item Tag="0">archma</Item>
+      <Item Tag="0">iso</Item>
+      <Item Tag="0">mele</Item>
+      <Item Tag="0">kon me</Item>
+      <Item Tag="0">profiledef.sh</Item>
+      <Item Tag="0">install -Dm</Item>
+      <Item Tag="0">ARCHMAT_ROOT_IN_ISO</Item>
+      <Item Tag="0">pacman.conf </Item>
+      <Item Tag="0">mkdir -p "$ARCHMAT_ROOT_IN_ISO/bin"</Item>
+      <Item Tag="0">install_installer_scripts</Item>
+      <Item Tag="0">md-virtiofsd.service</Item>
+      <Item Tag="0">-ui</Item>
+      <Item Tag="0">archmat-installer-ui.sh</Item>
+      <Item Tag="0">rchmat-installer.service</Item>
+      <Item Tag="0">enable_installer_service</Item>
+      <Item Tag="0">copy_airootfs_overrides</Item>
+      <Item Tag="0">"$REPO_ROOT/archmat-sc</Item>
+      <Item Tag="0">sudo</Item>
+      <Item Tag="0">newt</Item>
+      <Item Tag="0">error</Item>
+    </SearchText>
+    <SearchTextPath/>
+    <ReplaceText>
+      <Item>smplOS</Item>
+    </ReplaceText>
+    <ReplaceTextPath/>
+    <RenameNameMask>
+      <Item>[N]</Item>
+    </RenameNameMask>
+    <RenameExtMask>
+      <Item>[E]</Item>
+    </RenameExtMask>
+    <SearchDirectories>
+      <Item>/home/blin/Documents/sources/smplos/</Item>
+      <Item>/home/blin/Documents/sources/smplos/src/</Item>
+      <Item>/home/blin/Documents/sources/smplos/src/shared/</Item>
+      <Item>/home/blin/Documents/sources/tide/</Item>
+      <Item>/home/blin/Documents/sources/smplos/src/shared/configs/</Item>
+      <Item>/run/media/blin/6TWDBACKUP/(0) Sources/linux/omarchy/omarchy/</Item>
+      <Item>/home/blin/Documents/sources/omarchy/omarchy-iso/</Item>
+      <Item>/home/blin/Documents/</Item>
+      <Item>/home/blin/Documents/sources/omarchy/</Item>
+      <Item>/home/blin/Documents/sources/archmat/</Item>
+      <Item>/home/blin/Documents/sources/archmat/archmat-scripts/</Item>
+      <Item>/home/blin/Documents/sources/archmat/archmat-scripts/packages/</Item>
+      <Item>/run/media/blin/6TWDBACKUP/</Item>
+      <Item>/run/media/blin/BACKUP/</Item>
+      <Item>/run/media/blin/75D7-DC5F/</Item>
+      <Item>/home/blin/.config/</Item>
+      <Item>/run/media/blin/VENDATA/arch_kde/</Item>
+      <Item>/run/media/blin/VENDATA/</Item>
+      <Item>/home/blin/</Item>
+      <Item>/home/blin/Documents/sources/</Item>
+      <Item>/run/media/blin/VENDATA/arch_kde/plasmatheme/MatrixPureBlack/plasma/desktoptheme/MatrixPureBlack/</Item>
+      <Item>/run/media/blin/VENDATA/arch_kde/plasmatheme/MatrixPureBlack/</Item>
+      <Item>/run/media/blin/6TWDBACKUP/(0) Projects/podcasts/</Item>
+      <Item>/run/media/blin/BACKUP_11/</Item>
+      <Item>/home/</Item>
+      <Item>/home/blin/Downloads/ai/</Item>
+      <Item>/home/blin/ComfyUI/models/loras/</Item>
+      <Item>/mnt/truenas/camera/photos/Photos/</Item>
+      <Item>/mnt/truenas/camera/photos/Photos/2018/</Item>
+      <Item>/mnt/truenas/camera/photos/video/</Item>
+      <Item>/home/blin/ComfyUI/</Item>
+      <Item>/run/media/blin/BACKUP_11/__worknew/</Item>
+      <Item>/home/blin/ComfyUI/models/</Item>
+      <Item>/home/blin/ComfyUI/custom_nodes/comfyui-wildcards/wildcards/</Item>
+      <Item>/home/blin/ComfyUI/custom_nodes/</Item>
+      <Item>/home/blin/Documents/sources/image_preference_tool/data/images/</Item>
+      <Item>/home/blin/Documents/sources/image_preference_tool/data/</Item>
+      <Item>/home/blin/Documents/sources/image_preference_tool/</Item>
+      <Item>/run/media/blin/VENDATA/arch_kde/configs/</Item>
+      <Item>/home/blin/.config/gtk/</Item>
+      <Item>/run/media/blin/VENDATA/arch_kde/./plasmatheme/MatrixPureBlack/</Item>
+      <Item>/home/blin/.config/VSCodium/</Item>
+      <Item>/run/media/blin/VENDATA/arch_kde/plasmatheme/</Item>
+      <Item>/</Item>
+      <Item>/usr/share/plasma/</Item>
+      <Item>/home/blin/.local/share/plasma/look-and-feel/MatrixBlack/</Item>
+      <Item>/home/blin/.local/share/plasma/look-and-feel/</Item>
+    </SearchDirectories>
+    <SearchExcludeFiles/>
+    <SearchExcludeDirectories/>
+  </History>
+</doublecmd>

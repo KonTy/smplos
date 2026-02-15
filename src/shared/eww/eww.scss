@@ -175,6 +175,7 @@ window {
 .tray-bluetooth,
 .tray-internet,
 .tray-notifications,
+.tray-usb,
 .tray-clock {
   padding: 2px 6px;
   border-radius: 4px;
@@ -186,6 +187,7 @@ window {
 .tray-bluetooth:hover,
 .tray-internet:hover,
 .tray-notifications:hover,
+.tray-usb:hover,
 .tray-clock:hover {
   background-color: $bg-light;
 }
@@ -193,7 +195,8 @@ window {
 .tray-volume .icon,
 .tray-wifi .icon,
 .tray-bluetooth .icon,
-.tray-notifications .icon {
+.tray-notifications .icon,
+.tray-usb .icon {
   font-size: 14px;
   color: $accent;
 }
@@ -277,6 +280,84 @@ window {
 
 .cal-widget calendar:indeterminate {
   color: rgba($fg-dim, 0.4);
+}
+
+/* ============================================================================
+   USB POPUP
+   ============================================================================ */
+
+.usb-popup {
+  background-color: rgba(darken($bg, 5%), $popup-opacity);
+  border-radius: 6px;
+  border: 1px solid rgba($bg-lighter, 0.35);
+  padding: 12px;
+  box-shadow: 0 -2px 12px rgba(0, 0, 0, 0.3);
+}
+
+.usb-header {
+  padding: 4px 4px 8px;
+}
+
+.usb-title {
+  font-size: 14px;
+  font-weight: bold;
+  color: $accent;
+}
+
+.usb-close {
+  font-size: 13px;
+  font-weight: bold;
+  color: $bg;
+  background-color: $accent;
+  padding: 2px 8px;
+  border-radius: 4px;
+  min-width: 20px;
+  min-height: 20px;
+}
+
+.usb-close:hover {
+  background-color: $red;
+  color: $bg;
+}
+
+.usb-device {
+  padding: 6px 8px;
+  border-radius: 4px;
+  background-color: rgba($bg-light, 0.5);
+}
+
+.usb-device:hover {
+  background-color: $bg-light;
+}
+
+.usb-device-icon {
+  font-size: 18px;
+  color: $accent;
+  min-width: 24px;
+}
+
+.usb-device-label {
+  font-size: 13px;
+  font-weight: bold;
+  color: $fg;
+}
+
+.usb-device-meta {
+  font-size: 11px;
+  color: $fg-dim;
+}
+
+.usb-eject {
+  font-size: 16px;
+  color: $fg-dim;
+  padding: 4px 8px;
+  border-radius: 4px;
+  min-width: 28px;
+}
+
+.usb-eject:hover {
+  color: $red;
+  background-color: rgba($red, 0.15);
 }
 
 /* Quick Settings panel */

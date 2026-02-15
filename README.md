@@ -39,16 +39,58 @@ The rule is simple: if a tool only works on one display server, it doesn't ship 
 
 ### Editions
 
-smplOS ships in focused editions, each adding curated tools on top of the same minimal base:
+smplOS ships in focused editions that **stack on top of each other**. Pick the ones you need — they all merge cleanly:
 
-| Edition | Focus | Example apps |
-|---------|-------|-------------|
-| **Lite** | Minimal base | Browser, terminal, file manager |
-| **Creators** | Design & media | GIMP, OBS, Kdenlive, Inkscape |
-| **Productivity** | Office & workflow | LibreOffice, Thunderbird, Obsidian |
-| **Communication** | Chat & calls | Discord, Signal, Slack |
+| Flag | Edition | Focus | Example apps |
+|------|---------|-------|-------------|
+| `-p` | **Productivity** | Office & workflow | Logseq, LibreOffice, KeePassXC |
+| `-c` | **Creators** | Design & media | GIMP, OBS, Kdenlive, Inkscape |
+| `-m` | **Communication** | Chat & calls | Discord, Signal, Slack |
+| `-d` | **Development** | Developer tools | Docker, lazygit, neovim extras |
+| `-a` | **AI** | AI tools | Ollama, open-webui |
+
+Build with any combination:
+
+```bash
+./build-iso.sh -p -d          # Productivity + Development
+./build-iso.sh -p -d -c -m    # Stack all four
+./build-iso.sh                 # Base only (browser, terminal, file manager)
+```
 
 Every edition installs offline, in under 2 minutes, from the same ISO.
+
+---
+
+## Getting Started
+
+On first boot, a notification shows the essential keybindings. Here they are for reference:
+
+| Shortcut | Action |
+|----------|--------|
+| <kbd>Super</kbd> (tap) | Start menu launcher |
+| <kbd>Super</kbd>+<kbd>Enter</kbd> | Terminal |
+| <kbd>Super</kbd>+<kbd>Space</kbd> | App launcher |
+| <kbd>Super</kbd>+<kbd>W</kbd> | Close window |
+| <kbd>Super</kbd>+<kbd>F</kbd> | Fullscreen |
+| <kbd>Super</kbd>+<kbd>T</kbd> | Toggle floating |
+| <kbd>Super</kbd>+<kbd>1-9</kbd> | Switch workspace |
+| <kbd>Super</kbd>+<kbd>K</kbd> | Keybinding cheatsheet |
+| <kbd>Super</kbd>+<kbd>Shift</kbd>+<kbd>F</kbd> | File manager |
+| <kbd>Super</kbd>+<kbd>Shift</kbd>+<kbd>B</kbd> | Web browser |
+| <kbd>Print</kbd> | Screenshot |
+| <kbd>Super</kbd>+<kbd>Escape</kbd> | Power menu |
+
+Press <kbd>Super</kbd>+<kbd>K</kbd> anytime to see all bindings in an overlay.
+
+### Themes
+
+Switch the system theme (terminal, bar, borders, lock screen, editor) with a single command:
+
+```bash
+theme-set catppuccin     # or: dracula, nord, gruvbox, rose-pine, ...
+```
+
+Or open the theme picker from the start menu's Settings tab.
 
 ---
 
@@ -90,6 +132,94 @@ release/               VM testing tools (dev-push, test-iso, QEMU scripts)
 |------------|---------------|----------|--------|
 | Hyprland   | Wayland       | st-wl    | Active |
 | DWM        | X11           | st       | Planned |
+
+## Start Menu Launcher
+
+smplOS includes a custom start menu launcher built on rofi, inspired by the [adi1090x](https://github.com/adi1090x/rofi) type-1/style-15 layout. It appears at the bottom-left of the screen (like a Plasma/Windows start menu) with a slide-left animation, blur, and per-theme transparency.
+
+**Open it:** Press <kbd>Super</kbd> (tap and release) or click the logo in the EWW bar.
+
+### Tabs
+
+The launcher uses rofi's native modi system with two tabs:
+
+| Tab | Hotkey | What it shows |
+|-----|--------|---------------|
+| **Apps** | <kbd>Alt</kbd>+<kbd>A</kbd> | All desktop applications (drun) |
+| **Settings** | <kbd>Alt</kbd>+<kbd>S</kbd> | System settings entries (Wi-Fi, Bluetooth, Display, Audio, Themes, etc.) |
+
+Hotkeys jump to the tab **and clear the search filter** — so you get a fresh list every time. The mode-switcher tabs at the bottom are also clickable.
+
+### How it works
+
+- **`launcher`** — wrapper script that runs rofi with native modi (`drun` + `settings:rofi-settings-src`). Handles <kbd>Alt</kbd>+<kbd>A</kbd>/<kbd>Alt</kbd>+<kbd>S</kbd> via `kb-custom` exit codes, restarting rofi on the target mode.
+- **`rofi-settings-src`** — rofi script-mode source that reads from the app cache, filtering for settings entries.
+- **`smplos-launcher.rasi.tpl`** — theme template with `rgba()` transparency using `popup_opacity` from `colors.toml`, matching the look of other popup panels.
+- **Hyprland layerrules** — `animation slide left`, `blur on`, `ignore_alpha 0.1` on namespace `rofi`.
+
+### App Cache
+
+The launcher reads from a pre-built app index at `~/.cache/smplos/app_index`. This is automatically rebuilt by a systemd path unit (`smplos-app-cache.path`) whenever `.desktop` files, Flatpak apps, or AppImages change. You can also rebuild manually:
+
+```bash
+rebuild-app-cache
+```
+
+## GTK Theming & Credential Storage
+
+smplOS configures the system so GTK dialogs (file pickers, VS Code popups, etc.) follow the dark/light theme automatically:
+
+- **GTK settings.ini** — written during install for X11 fallback
+- **dconf/GSettings** — written during install via `dbus-run-session` for Wayland (GTK on Wayland ignores `settings.ini`)
+- **`theme-set`** — updates both `gsettings color-scheme` and `gtk-theme` on every theme switch
+
+Credential storage (for VS Code, Brave, git, etc.) is fully configured:
+
+- **gnome-keyring** — installed, started via Hyprland autostart, PAM-integrated for auto-unlock at login
+- **VS Code argv.json** — pre-configured with `"password-store": "gnome-libsecret"` to eliminate the keyring detection dialog
+
+## Notification Center
+
+A custom notification center built with Rust and [Slint](https://slint.dev), accessible from the bell icon in the EWW bar. It reads dunst's notification history and displays cards with dynamic heights — long messages word-wrap naturally instead of being truncated.
+
+**Open it:** Click the bell icon in the bar, or press <kbd>Super</kbd> + <kbd>N</kbd>.
+
+### Features
+
+- **Dynamic card layout** — each notification card grows to fit its content. No fixed heights, no wasted space.
+- **Word-wrapped body text** — long notification bodies wrap cleanly instead of being clipped with an ellipsis.
+- **Double-click to open** — double-click any notification to launch the associated app. Uses the desktop entry from dunst metadata, with a fallback to the app name.
+- **Actionable notifications** — well-known notifications (like "System Update") map to specific commands. Double-click the System Update notification to open a full system update in your terminal.
+- **Dismiss** — click the × button on any card to dismiss it.
+- **Scrollable** — notifications overflow into a smooth-scrolling list.
+
+### Architecture
+
+```
+dunst (notification daemon)
+  └─ dunstctl history ──► notif-center (Rust + Slint)
+                              ├─ Parses JSON history
+                              ├─ Maps app names to nerd font icons
+                              ├─ Maps summaries to actions (e.g. "System Update" → smplos-update)
+                              └─ Renders scrollable card list via Slint UI
+```
+
+## System Updates
+
+smplOS includes a built-in update system. On first boot, a persistent "System Update" notification appears. Double-click it in the notification center to run a full update, or run it manually:
+
+```bash
+smplos-update
+```
+
+The update script opens in your terminal and runs through:
+
+1. **Pacman** — official repo packages (`pacman -Syu --noconfirm`)
+2. **AUR** — if paru is installed, AUR packages (`paru -Sua --noconfirm`)
+3. **Flatpak** — if Flatpak apps are installed (`flatpak update -y --noninteractive`)
+4. **AppImages** — reminds you to check for updates manually
+
+Terminal auto-detection ensures it works regardless of which terminal is installed: `xdg-terminal-exec` &#x2192; `st-wl` (Wayland) &#x2192; `st` (X11) &#x2192; `foot` &#x2192; `xterm`.
 
 ## Building
 
@@ -192,9 +322,15 @@ You also need **~10 GB of free disk space**. The script checks this and warns yo
 ```
 Usage: build-iso.sh [OPTIONS]
 
-Options:
-    -c, --compositor NAME   Compositor to build (hyprland, dwm) [default: hyprland]
-    -e, --edition NAME      Edition variant (lite, creators) [optional]
+Editions (stackable):
+    -p, --productivity      Add Productivity edition (Logseq, LibreOffice, KeePassXC)
+    -c, --creators          Add Creators edition (GIMP, OBS, Kdenlive, Inkscape)
+    -m, --communication     Add Communication edition (Discord, Signal, Slack)
+    -d, --development       Add Development edition (Docker, lazygit, neovim extras)
+    -a, --ai                Add AI edition (Ollama, open-webui)
+
+General:
+    --compositor NAME       Compositor to build (hyprland, dwm) [default: hyprland]
     -r, --release           Release build: max xz compression (slow, smallest ISO)
     -n, --no-cache          Force fresh package downloads
     -v, --verbose           Verbose output
@@ -207,17 +343,20 @@ Options:
 #### Common Workflows
 
 ```bash
-# Standard build (Hyprland, all packages)
+# Base build (Hyprland, browser, terminal, file manager)
 ./build-iso.sh
+
+# Productivity + Development
+./build-iso.sh -p -d
+
+# Stack everything
+./build-iso.sh -p -d -c -m -a
 
 # Fast iteration build (skip AUR packages like EWW that take ages to compile)
 ./build-iso.sh --skip-aur
 
-# Build a specific edition
-./build-iso.sh -c hyprland -e lite
-
 # Release build with max compression
-./build-iso.sh --release
+./build-iso.sh -p -d --release
 
 # Full verbose output for debugging
 ./build-iso.sh -v
@@ -264,9 +403,40 @@ sudo bash /mnt/dev-apply.sh
 
 ### VM Testing
 
+Use QEMU for testing — it provides a `virtio-gpu` device that Hyprland works with out of the box:
+
 ```bash
 cd release && ./test-iso.sh
 ```
+
+This launches a QEMU VM with KVM acceleration, UEFI firmware, a 20 GB virtual disk, and a 9p shared folder for live hot-reloading. The script auto-detects OVMF, finds the newest ISO in `release/`, and opens the VM window.
+
+Once the VM boots, mount the shared folder to enable hot-reload:
+
+```bash
+# Inside the VM:
+sudo mount -t 9p -o trans=virtio hostshare /mnt
+```
+
+Then iterate without rebuilding the ISO:
+
+```bash
+# Host: push changes to the shared folder
+cd release && ./dev-push.sh
+
+# VM: apply them to the live system
+sudo bash /mnt/dev-apply.sh
+```
+
+The 9p mount is live — `dev-push.sh` writes to `release/vmshare/` and changes are immediately visible inside the VM. No remount needed.
+
+Use `--reset` to wipe the VM disk and start fresh:
+
+```bash
+./test-iso.sh --reset
+```
+
+> **VirtualBox is not supported.** Hyprland requires a working DRM/KMS device with OpenGL support. VirtualBox's virtual GPU (`VBoxVGA` / `VMSVGA`) does not provide this — Hyprland will crash immediately on startup, producing a "Couldn't wait for Hyprland. No child process" error from the login manager. This is a [known limitation](https://wiki.hyprland.org/Getting-Started/Installation/#running-in-a-vm) across all Hyprland-based distros, not a smplOS bug. Use QEMU with KVM (`test-iso.sh`) or VMware with 3D acceleration instead.
 
 ## Themes
 
@@ -274,7 +444,7 @@ cd release && ./test-iso.sh
 
 Catppuccin Mocha, Catppuccin Latte, Ethereal, Everforest, Flexoki Light, Gruvbox, Hackerman, Kanagawa, Matte Black, Nord, Osaka Jade, Ristretto, Rose Pine, Tokyo Night.
 
-One command -- `theme-set <name>` -- applies colors across the entire system: terminal, bar, notifications, compositor borders, lock screen, launcher, system monitor, editor, fish shell, and browser chrome.
+One command -- `theme-set <name>` -- applies colors across the entire system: terminal, bar, notifications, compositor borders, lock screen, launcher, system monitor, editor, fish shell, Logseq, and browser chrome.
 
 ### How It Works
 
@@ -297,15 +467,17 @@ Each theme is a directory under `src/shared/themes/<name>/` containing:
 | `dunstrc.theme` | Generated | Dunst notification colors |
 | `eww-colors.scss` | Generated | EWW bar/widget SCSS variables |
 | `eww-colors.yuck` | Generated | EWW yuck variables (for SVG fills) |
-| `fish.theme` | Generated | Fish shell syntax highlighting |
+| `fish.theme` | Generated | Fish shell syntax highlighting and pager colors |
 | `foot.ini` | Generated | Foot terminal colors |
 | `hyprland.conf` | Generated | Hyprland border colors, rounding, blur, opacity |
 | `hyprlock.conf` | Generated | Lock screen colors |
-| `rofi.rasi` | Generated | Rofi launcher theme |
+| `logseq-custom.css` | Generated | Logseq editor colors (backgrounds, text, links, highlights) |
+| `smplos-launcher.rasi` | Generated | Rofi start menu theme (rgba transparency via `popup_opacity`) |
 | `neovim.lua` | Hand-authored | Lazy.nvim colorscheme spec |
 | `vscode.json` | Hand-authored | VS Code/Codium/Cursor theme name + extension ID |
 | `icons.theme` | Hand-authored | GTK icon theme name |
 | `light.mode` | Hand-authored (optional) | Marker file -- if present, GTK + browser use light mode |
+| `tide.theme` | Hand-authored | Tide prompt colors (git, pwd, vi-mode segments) |
 | `backgrounds/` | Hand-authored | Wallpapers bundled with the theme |
 | `preview.png` | Hand-authored | Theme preview screenshot for the picker |
 
@@ -435,7 +607,9 @@ When you run `theme-set <name>`, it:
    - `foot.ini` &#x2192; `~/.config/foot/theme.ini`
    - `btop.theme` &#x2192; `~/.config/btop/themes/current.theme`
    - `fish.theme` &#x2192; `~/.config/fish/theme.fish`
-   - `rofi.rasi` &#x2192; `~/.config/rofi/smplos.rasi`
+   - `tide.theme` &#x2192; applied via `fish -c "source ...; tide reload"`
+   - `logseq-custom.css` &#x2192; `~/.logseq/config/custom.css` + plugin theme via `preferences.json`
+   - `smplos-launcher.rasi` &#x2192; `~/.config/rofi/smplos-launcher.rasi`
    - `dunstrc.theme` &#x2192; appended to `~/.config/dunst/dunstrc.active`
    - `neovim.lua` &#x2192; `~/.config/nvim/lua/plugins/colorscheme.lua`
 4. Bakes accent/fg colors into SVG icon templates for the EWW bar
@@ -445,8 +619,11 @@ When you run `theme-set <name>`, it:
    - Hyprland: `hyprctl reload`
    - st/st-wl: OSC escape sequences (live, no restart)
    - Foot: `SIGUSR1`
+   - Fish: sources `theme.fish` in all running sessions
+   - Tide prompt: `tide reload` (updates git, pwd, vi-mode segment colors)
    - Dunst: `dunstctl reload`
    - btop: `SIGUSR2`
+   - Logseq: writes `preferences.json` (Logseq watches this file)
    - GTK: `gsettings` (dark/light mode)
    - Brave/Chromium: managed policy + flags file
 

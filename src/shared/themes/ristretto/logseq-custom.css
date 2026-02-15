@@ -1,0 +1,62 @@
+/* smplOS theme — auto-generated, do not edit manually */
+
+:root {
+  --ls-primary-background-color: #2c2525 !important;
+  --ls-secondary-background-color: #3d3535 !important;
+  --ls-tertiary-background-color: #4e4444 !important;
+  --ls-quaternary-background-color: #4e4444 !important;
+
+  --ls-primary-text-color: #e6d9db !important;
+  --ls-secondary-text-color: #948a8b !important;
+
+  --ls-link-text-color: #f38d70 !important;
+  --ls-link-text-hover-color: #f8a788 !important;
+  --ls-active-primary-color: #f38d70 !important;
+  --ls-active-secondary-color: #f38d70 !important;
+
+  --ls-border-color: #72696a !important;
+  --ls-secondary-border-color: #4e4444 !important;
+
+  --ls-selection-background-color: #403e41 !important;
+  --ls-block-highlight-color: #3d3535 !important;
+  --ls-page-properties-background-color: #3d3535 !important;
+  --ls-block-properties-background-color: #3d3535 !important;
+  --ls-table-tr-even-background-color: #3d3535 !important;
+  --ls-page-inline-code-bg-color: #3d3535 !important;
+
+  --ls-focus-ring-color: #f38d70 !important;
+  --ls-a-chosen-bg: #3d3535 !important;
+  --ls-page-checkbox-color: #f38d70 !important;
+  --ls-page-checkbox-border-color: #948a8b !important;
+
+  --ls-guideline-color: #72696a !important;
+  --ls-block-bullet-color: #948a8b !important;
+
+  --ls-scrollbar-foreground-color: #4e4444 !important;
+  --ls-scrollbar-background-color: #2c2525 !important;
+
+  --ls-head-text-color: #e6d9db !important;
+  --ls-icon-color: #948a8b !important;
+
+  --color-level-1: #2c2525 !important;
+  --color-level-2: #3d3535 !important;
+  --color-level-3: #4e4444 !important;
+
+  --ls-highlight-color-gray: #4e4444 !important;
+  --ls-highlight-color-red: #fd6883 !important;
+  --ls-highlight-color-green: #adda78 !important;
+  --ls-highlight-color-blue: #f38d70 !important;
+  --ls-highlight-color-yellow: #f9cc6c !important;
+  --ls-highlight-color-purple: #a8a9eb !important;
+  --ls-highlight-color-pink: #a8a9eb !important;
+
+  --ls-cloze-text-color: #f38d70 !important;
+}
+
+/* Override code mirror / code block backgrounds */
+.CodeMirror,
+.cm-s-solarized,
+.extensions__code .code-editor {
+  background-color: #3d3535 !important;
+  color: #e6d9db !important;
+}

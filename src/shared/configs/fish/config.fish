@@ -10,6 +10,10 @@ set -gx VISUAL micro
 set -gx SUDO_EDITOR micro
 set -gx BAT_THEME ansi
 
+# ── Key Bindings ─────────────────────────────────────────────
+# Use default (emacs) key bindings — prevents Tide vi mode indicator (D/I/R/V)
+fish_default_key_bindings
+
 # ── Aliases ──────────────────────────────────────────────────
 if command -q eza
     alias ls 'eza --icons --group-directories-first'
@@ -36,10 +40,7 @@ alias gcam 'git commit -a -m'
 alias gcad 'git commit -a --amend'
 
 # ── Integrations ─────────────────────────────────────────────
-# Starship prompt
-if command -q starship
-    starship init fish | source
-end
+# Tide prompt (auto-configured in conf.d/_tide_init.fish)
 
 # Zoxide (smart cd)
 if command -q zoxide

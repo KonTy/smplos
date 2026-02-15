@@ -18,7 +18,7 @@
             :onclick "notif-open '${notif.desktop_entry}' '${notif.appname}' &"
     (box :orientation "h" :space-evenly false :spacing 8
       ;; Left: app icon or fallback
-      (label :class "notif-app-icon" :text {
+      (label :class "notif-app-icon" :valign "start" :text {
         notif.appname == "Signal" ? "󰍡" :
         notif.appname == "discord" || notif.appname == "Discord" ? "󰙯" :
         notif.appname == "Brave" || notif.appname == "brave-browser" ? "󰖟" :
@@ -34,14 +34,14 @@
       (box :class "notif-content" :orientation "v" :space-evenly false :spacing 2 :hexpand true
         (label :class "notif-summary" :text {notif.summary} :halign "start" :limit-width 30)
         (label :class "notif-body" :text {notif.body}
-               :halign "start" :wrap true :limit-width 45
+               :halign "start" :wrap true
                :visible {notif.body != ""}))
       ;; Date/time
-      (box :orientation "v" :space-evenly false :halign "end" :valign "center"
+      (box :orientation "v" :space-evenly false :halign "end" :valign "start"
         (label :class "notif-date" :text {notif.date} :halign "end")
         (label :class "notif-time" :text {notif.time} :halign "end"))
       ;; Right: dismiss button
-      (button :class "notif-dismiss"
+      (button :class "notif-dismiss" :valign "start"
               :onclick "dunstctl history-rm ${notif.id} && { pid=$(cat /tmp/notif-hub-listener.pid 2>/dev/null) && kill -USR1 $pid; } &"
               :tooltip "Dismiss"
         (label :text "󰅖")))))

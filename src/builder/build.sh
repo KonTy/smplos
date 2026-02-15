@@ -21,7 +21,7 @@ PROFILE_DIR="$CACHE_DIR/profile"
 
 # From environment
 COMPOSITOR="${COMPOSITOR:-hyprland}"
-EDITION="${EDITION:-}"
+EDITIONS="${EDITIONS:-}"
 VERBOSE="${VERBOSE:-}"
 SKIP_AUR="${SKIP_AUR:-}"
 SKIP_FLATPAK="${SKIP_FLATPAK:-}"
@@ -121,6 +121,13 @@ collect_packages() {
     if [[ -z "$SKIP_AUR" ]]; then
         read_package_list "$compositor_dir/packages-aur.txt" AUR_PACKAGES
         read_package_list "$SRC_DIR/shared/packages-aur.txt" AUR_PACKAGES
+        # Edition AUR extras (iterate all stacked editions)
+        if [[ -n "${EDITIONS:-}" ]]; then
+            IFS=',' read -ra _eds <<< "$EDITIONS"
+            for _ed in "${_eds[@]}"; do
+                read_package_list "$SRC_DIR/editions/$_ed/packages-aur-extra.txt" AUR_PACKAGES
+            done
+        fi
     fi
     
     # Flatpak packages
@@ -416,6 +423,36 @@ build_st() {
         return 0
     fi
 
+    local bin_name
+    if [[ "$COMPOSITOR" == "hyprland" ]]; then
+        bin_name="st-wl"
+    else
+        bin_name="st"
+    fi
+
+    # ── Source-hash cache: skip build if source hasn't changed ──
+    local bin_cache="/var/cache/smplos/binaries"
+    local src_hash
+    src_hash=$(find "$st_src" -type f \( -name '*.c' -o -name '*.h' -o -name '*.def.h' -o -name 'Makefile' -o -name 'config.mk' \) \
+        -exec sha256sum {} + 2>/dev/null | sort | sha256sum | cut -d' ' -f1)
+    local cache_key="st-${COMPOSITOR}-${src_hash}"
+
+    if [[ -f "$bin_cache/$cache_key" ]]; then
+        log_info "st source unchanged, using cached binary ($cache_key)"
+        install -Dm755 "$bin_cache/$cache_key" "$airootfs/usr/local/bin/$bin_name"
+        install -Dm755 "$bin_cache/$cache_key" "$airootfs/root/smplos/bin/$bin_name"
+        # Install terminfo from source (tiny, no compilation needed)
+        if [[ -f "$st_src/${bin_name}.info" ]]; then
+            tic -sx "$st_src/${bin_name}.info" -o "$airootfs/usr/share/terminfo" 2>/dev/null || true
+        elif [[ -f "$st_src/st.info" ]]; then
+            tic -sx "$st_src/st.info" -o "$airootfs/usr/share/terminfo" 2>/dev/null || true
+        fi
+        if [[ -f "$st_src/${bin_name}.desktop" ]]; then
+            install -Dm644 "$st_src/${bin_name}.desktop" "$airootfs/usr/share/applications/${bin_name}.desktop"
+        fi
+        return 0
+    fi
+
     # Install build dependencies on the build host
     local st_deps=()
     if [[ "$COMPOSITOR" == "hyprland" ]]; then
@@ -436,14 +473,6 @@ build_st() {
     rm -f "$build_dir/config.h" "$build_dir/patches.h"
     make -j"$(nproc)"
 
-    # Install binary and terminfo into the ISO
-    local bin_name
-    if [[ "$COMPOSITOR" == "hyprland" ]]; then
-        bin_name="st-wl"
-    else
-        bin_name="st"
-    fi
-
     install -Dm755 "$bin_name" "$airootfs/usr/local/bin/$bin_name"
     # Only strip release builds; debug builds need symbols for crash analysis
     if ! grep -q 'STWL_DEBUG' "$build_dir/config.mk"; then
@@ -457,6 +486,11 @@ build_st() {
     if ! grep -q 'STWL_DEBUG' "$build_dir/config.mk"; then
         strip "$airootfs/root/smplos/bin/$bin_name"
     fi
+
+    # Save to cache for future builds
+    mkdir -p "$bin_cache"
+    cp "$airootfs/usr/local/bin/$bin_name" "$bin_cache/$cache_key"
+    log_info "Cached st binary as $cache_key"
 
     # Install terminfo
     if [[ -f "$build_dir/${bin_name}.info" ]]; then
@@ -491,6 +525,21 @@ build_notif_center() {
         return
     fi
 
+    # ── Source-hash cache: skip build if source hasn't changed ──
+    local bin_cache="/var/cache/smplos/binaries"
+    local src_hash
+    src_hash=$({ find "$nc_src/src" "$nc_src/ui" -type f -exec sha256sum {} + 2>/dev/null; \
+        sha256sum "$nc_src/Cargo.toml" "$nc_src/Cargo.lock" "$nc_src/build.rs" 2>/dev/null; \
+    } | sort | sha256sum | cut -d' ' -f1)
+    local cache_key="notif-center-${src_hash}"
+
+    if [[ -f "$bin_cache/$cache_key" ]]; then
+        log_info "notif-center source unchanged, using cached binary ($cache_key)"
+        install -Dm755 "$bin_cache/$cache_key" "$airootfs/usr/local/bin/notif-center"
+        install -Dm755 "$bin_cache/$cache_key" "$airootfs/root/smplos/bin/notif-center"
+        return 0
+    fi
+
     # Install Rust toolchain and build deps
     pacman --noconfirm --needed -S rust cargo cmake pkgconf fontconfig freetype2 \
         libxkbcommon wayland libglvnd mesa 2>/dev/null || true
@@ -519,6 +568,11 @@ build_notif_center() {
     # Also stage for the installer to deploy to the installed system
     install -Dm755 "$bin_path" "$airootfs/root/smplos/bin/notif-center"
     strip "$airootfs/root/smplos/bin/notif-center"
+
+    # Save to cache for future builds
+    mkdir -p "$bin_cache"
+    cp "$airootfs/usr/local/bin/notif-center" "$bin_cache/$cache_key"
+    log_info "Cached notif-center binary as $cache_key"
 
     cd "$SRC_DIR"
     rm -rf "$build_dir"
@@ -575,6 +629,20 @@ setup_airootfs() {
         mkdir -p "$airootfs/root/smplos/bin"
         cp -r "$SRC_DIR/shared/bin/"* "$airootfs/root/smplos/bin/" 2>/dev/null || true
         chmod +x "$airootfs/root/smplos/bin/"* 2>/dev/null || true
+    fi
+    
+    # Deploy shared web app .desktop files and icons (available in all editions)
+    if [[ -d "$SRC_DIR/shared/applications" ]]; then
+        log_info "Deploying shared web app entries"
+        mkdir -p "$skel/.local/share/applications"
+        cp "$SRC_DIR/shared/applications/"*.desktop "$skel/.local/share/applications/" 2>/dev/null || true
+        mkdir -p "$airootfs/root/smplos/applications"
+        cp "$SRC_DIR/shared/applications/"*.desktop "$airootfs/root/smplos/applications/" 2>/dev/null || true
+        if [[ -d "$SRC_DIR/shared/applications/icons/hicolor" ]]; then
+            cp -r "$SRC_DIR/shared/applications/icons/hicolor" "$airootfs/usr/share/icons/"
+            mkdir -p "$airootfs/root/smplos/icons/hicolor"
+            cp -r "$SRC_DIR/shared/applications/icons/hicolor/"* "$airootfs/root/smplos/icons/hicolor/"
+        fi
     fi
     
     # Deploy custom os-release (so fastfetch shows "smplOS" not "Arch Linux")
@@ -646,6 +714,13 @@ setup_airootfs() {
         local smplos_skel_data="$skel/.local/share/smplos"
         mkdir -p "$smplos_skel_data/themes"
         cp -r "$smplos_data/themes/"* "$smplos_skel_data/themes/"
+
+        # Deploy DC highlighters bundle (stock syntax colors for theme-set-dc)
+        if [[ -f "$SRC_DIR/shared/configs/smplos/dc-highlighters.json" ]]; then
+            log_info "Deploying DC highlighters bundle"
+            cp "$SRC_DIR/shared/configs/smplos/dc-highlighters.json" "$smplos_data/dc-highlighters.json"
+            cp "$SRC_DIR/shared/configs/smplos/dc-highlighters.json" "$smplos_skel_data/dc-highlighters.json"
+        fi
         
         # Pre-set catppuccin as the active theme for live session
         # Each theme ships all its configs pre-baked, just copy the whole dir
@@ -678,10 +753,22 @@ setup_airootfs() {
         mkdir -p "$skel/.config/hypr" && cp "$theme_src/hyprland.conf" "$skel/.config/hypr/theme.conf" 2>/dev/null || true
         cp "$theme_src/hyprlock.conf" "$skel/.config/hypr/hyprlock-theme.conf" 2>/dev/null || true
         mkdir -p "$skel/.config/foot" && cp "$theme_src/foot.ini" "$skel/.config/foot/theme.ini" 2>/dev/null || true
+        # Rofi theme (single file used by launcher + all dialogs)
+        mkdir -p "$skel/.config/rofi"
+        cp "$theme_src/smplos-launcher.rasi" "$skel/.config/rofi/smplos-launcher.rasi" 2>/dev/null || true
         # st -- no config file to copy, colors applied at runtime via OSC escape sequences
         mkdir -p "$skel/.config/btop/themes" && cp "$theme_src/btop.theme" "$skel/.config/btop/themes/current.theme" 2>/dev/null || true
         # Fish shell theme colors
         mkdir -p "$skel/.config/fish" && cp "$theme_src/fish.theme" "$skel/.config/fish/theme.fish" 2>/dev/null || true
+        # Double Commander -- pre-generate colors.json with catppuccin palette
+        if [[ -f "$airootfs/usr/local/bin/theme-set-dc" ]]; then
+            log_info "Pre-generating DC colors.json for catppuccin"
+            SMPLOS_BUILD=1 \
+            CURRENT_THEME_PATH="$skel/.config/smplos/current/theme" \
+            DC_CONFIG_DIR="$skel/.config/doublecmd" \
+            SMPLOS_PATH="$smplos_skel_data" \
+              bash "$airootfs/usr/local/bin/theme-set-dc" 2>/dev/null || true
+        fi
         # Browser (Brave/Chromium) -- set toolbar color via managed policy
         local browser_bg
         browser_bg=$(grep '^background' "$theme_src/colors.toml" | sed 's/.*"\(#[0-9a-fA-F]*\)".*/\1/')
@@ -765,10 +852,50 @@ setup_airootfs() {
     if [[ -f "$compositor_dir/packages-aur.txt" ]]; then
         cat "$compositor_dir/packages-aur.txt" >> "$airootfs/root/smplos/packages-aur.txt"
     fi
-    # Copy edition extra packages if building an edition
-    if [[ -n "${EDITION:-}" && -f "$SRC_DIR/editions/$EDITION/packages-extra.txt" ]]; then
-        log_info "Copying edition ($EDITION) extra packages"
-        cp "$SRC_DIR/editions/$EDITION/packages-extra.txt" "$airootfs/root/smplos/packages-extra.txt"
+    # Copy edition extra packages if building with editions (merge all stacked editions)
+    if [[ -n "${EDITIONS:-}" ]]; then
+        : > "$airootfs/root/smplos/packages-extra.txt"
+        IFS=',' read -ra _eds <<< "$EDITIONS"
+        for _ed in "${_eds[@]}"; do
+            if [[ -f "$SRC_DIR/editions/$_ed/packages-extra.txt" ]]; then
+                log_info "Merging edition ($_ed) extra packages"
+                cat "$SRC_DIR/editions/$_ed/packages-extra.txt" >> "$airootfs/root/smplos/packages-extra.txt"
+            fi
+        done
+    fi
+    # Append edition AUR extras to merged AUR list
+    if [[ -n "${EDITIONS:-}" ]]; then
+        IFS=',' read -ra _eds <<< "$EDITIONS"
+        for _ed in "${_eds[@]}"; do
+            if [[ -f "$SRC_DIR/editions/$_ed/packages-aur-extra.txt" ]]; then
+                log_info "Appending edition ($_ed) AUR packages"
+                cat "$SRC_DIR/editions/$_ed/packages-aur-extra.txt" >> "$airootfs/root/smplos/packages-aur.txt"
+            fi
+        done
+    fi
+
+    # Deploy edition-specific .desktop files and icons
+    if [[ -n "${EDITIONS:-}" ]]; then
+        IFS=',' read -ra _eds <<< "$EDITIONS"
+        for _ed in "${_eds[@]}"; do
+            local ed_dir="$SRC_DIR/editions/$_ed"
+            # .desktop files → skel + smplos data
+            if [[ -d "$ed_dir/applications" ]]; then
+                log_info "Deploying edition ($_ed) desktop entries"
+                mkdir -p "$skel/.local/share/applications"
+                cp "$ed_dir/applications/"*.desktop "$skel/.local/share/applications/" 2>/dev/null || true
+                mkdir -p "$airootfs/root/smplos/applications"
+                cp "$ed_dir/applications/"*.desktop "$airootfs/root/smplos/applications/" 2>/dev/null || true
+            fi
+            # Icons → system icon theme (hicolor)
+            if [[ -d "$ed_dir/icons/hicolor" ]]; then
+                log_info "Deploying edition ($_ed) icons"
+                cp -r "$ed_dir/icons/hicolor" "$airootfs/usr/share/icons/"
+                # Also to smplos data for installer to deploy
+                mkdir -p "$airootfs/root/smplos/icons/hicolor"
+                cp -r "$ed_dir/icons/hicolor/"* "$airootfs/root/smplos/icons/hicolor/"
+            fi
+        done
     fi
     
     # Copy Plymouth theme
@@ -900,6 +1027,13 @@ AUTOLOGIN
     echo "smplos" > "$airootfs/etc/hostname"
     echo "LANG=en_US.UTF-8" > "$airootfs/etc/locale.conf"
     echo "en_US.UTF-8 UTF-8" >> "$airootfs/etc/locale.gen"
+
+    # Enable systemd user units (app cache builder)
+    local skel="$airootfs/etc/skel"
+    local user_wants="$skel/.config/systemd/user/default.target.wants"
+    mkdir -p "$user_wants"
+    ln -sf ../smplos-app-cache.service "$user_wants/smplos-app-cache.service" 2>/dev/null || true
+    ln -sf ../smplos-app-cache.path "$user_wants/smplos-app-cache.path" 2>/dev/null || true
 }
 
 setup_helper_scripts() {
@@ -1027,7 +1161,11 @@ build_iso() {
     
     if [[ -n "$iso_file" && -f "$iso_file" ]]; then
         local new_name="${ISO_NAME}-${COMPOSITOR}"
-        [[ -n "$EDITION" ]] && new_name="${new_name}-${EDITION}"
+        if [[ -n "$EDITIONS" ]]; then
+            # Join edition names with + (e.g., productivity+development)
+            local ed_slug="${EDITIONS//,/+}"
+            new_name="${new_name}-${ed_slug}"
+        fi
         new_name="${new_name}-${ISO_VERSION}.iso"
         
         mv "$iso_file" "$RELEASE_DIR/$new_name"
@@ -1054,7 +1192,7 @@ main() {
     log_info "smplOS ISO Builder"
     log_info "=================="
     log_info "Compositor: $COMPOSITOR"
-    [[ -n "$EDITION" ]] && log_info "Edition: $EDITION"
+    [[ -n "$EDITIONS" ]] && log_info "Editions: $EDITIONS"
     [[ -n "$RELEASE" ]] && log_info "Release mode: max xz compression"
     [[ -n "$SKIP_AUR" ]] && log_info "AUR: disabled"
     [[ -n "$SKIP_FLATPAK" ]] && log_info "Flatpak: disabled"

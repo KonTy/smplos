@@ -40,9 +40,10 @@ mkdir -p $ROOT/compositors/dwm/{configs}
 ###############################################
 # Editions
 ###############################################
-for edition in creators lite; do
+for edition in productivity creators communication development ai lite; do
     mkdir -p $ROOT/editions/$edition
     [ ! -f $ROOT/editions/$edition/packages-extra.txt ] && touch $ROOT/editions/$edition/packages-extra.txt
+    [ ! -f $ROOT/editions/$edition/packages-aur-extra.txt ] && touch $ROOT/editions/$edition/packages-aur-extra.txt
     [ ! -f $ROOT/editions/$edition/postinstall-extra.sh ] && touch $ROOT/editions/$edition/postinstall-extra.sh && chmod +x $ROOT/editions/$edition/postinstall-extra.sh
 done
 

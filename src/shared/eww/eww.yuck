@@ -42,8 +42,8 @@
 ;; Notifications
 (deflisten notif-data :initial '{"count":"0","icon":"󰂜","paused":"no"}' `scripts/notification-listener.sh`)
 
-;; USB storage (disabled -- not in tray)
-;; (deflisten usb-data :initial '{"present":"no","count":"0","icon":""}' `scripts/usb-listener.sh`)
+;; USB storage (event-driven via udevadm)
+(deflisten usb-data :initial '{"present":"no","count":"0","icon":"","mounted":"0","devices":[]}' `scripts/usb-listener.sh`)
 
 ;; Printer (disabled -- not in tray)
 ;; (deflisten printer-data :initial '{"active":"no","count":"0","icon":""}' `scripts/printer-listener.sh`)
@@ -62,7 +62,7 @@
 ;; Logo/Menu button
 (defwidget logo []
   (button :class "logo"
-          :onclick "launcher &"
+          :onclick "pkill -x rofi && pkill -xf 'bash.*/launcher' || launcher &"
     "󰣇"))
 
 ;; Workspaces widget (4 fixed buttons with category icons)
@@ -148,6 +148,14 @@
           :tooltip {notif-data.count != "0" ? "${notif-data.count} notifications" : "No notifications"}
     (label :class "icon" :text {notif-data.icon})))
 
+;; USB drive indicator (only visible when a USB device is present)
+(defwidget tray-usb []
+  (button :class "tray-usb ${usb-data.mounted != '0' ? 'has-mounted' : ''}"
+          :onclick "popup-toggle usb-popup"
+          :tooltip {usb-data.mounted != "0" ? "${usb-data.mounted} mounted" : "${usb-data.count} device(s)"}
+          :visible {usb-data.present == "yes"}
+    (label :class "icon" :text {usb-data.icon})))
+
 ;; Clock + calendar toggle
 (defwidget tray-clock []
   (button :class "tray-clock"
@@ -158,6 +166,7 @@
 ;; Order right-to-left: Notifications | Clock | Volume | Internet | WiFi | BT
 (defwidget tray []
   (box :class "tray" :orientation "h" :space-evenly false :spacing 2
+    (tray-usb)
     (tray-bluetooth)
     (tray-wifi)
     (tray-internet)
@@ -222,4 +231,34 @@
   :stacking "overlay"
   :focusable false
   (calendar-widget))
+
+;; ============================================================================
+;; USB POPUP
+;; ============================================================================
+
+(defwidget usb-popup-widget []
+  (box :class "usb-popup" :orientation "v" :space-evenly false :spacing 8
+    (box :class "usb-header" :orientation "h" :space-evenly false
+      (label :class "usb-title" :text "Removable Drives" :halign "start" :hexpand true)
+      (button :class "usb-close" :onclick "popup-toggle --close" "x"))
+    (box :class "usb-list" :orientation "v" :space-evenly false :spacing 4
+      (for device in {usb-data.devices}
+        (box :class "usb-device" :orientation "h" :space-evenly false :spacing 8
+          (label :class "usb-device-icon" :text "󰕓")
+          (box :class "usb-device-info" :orientation "v" :space-evenly false :hexpand true
+            (label :class "usb-device-label" :text {device.label} :halign "start" :limit-width 20)
+            (label :class "usb-device-meta" :text "${device.size} -- ${device.path}" :halign "start" :limit-width 30))
+          (button :class "usb-eject"
+                  :onclick "udiskie-umount '${device.path}' && notify-send 'Drive ejected' '${device.label}'"
+                  :tooltip "Safely eject ${device.label}"
+            (label :text "󰆴")))))))
+
+;; USB popup (above bottom bar, left of center)
+(defwindow usb-popup
+  :monitor 0
+  :namespace "eww-usb-popup"
+  :geometry (geometry :x "7px" :y "2px" :width "300px" :height "10px" :anchor "bottom right")
+  :stacking "overlay"
+  :focusable false
+  (usb-popup-widget))
 

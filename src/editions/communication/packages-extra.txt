@@ -1,0 +1,4 @@
+# smplOS Communication Edition -- extra official-repo packages
+
+# Signal (official Arch Extra repo -- most trusted source)
+signal-desktop

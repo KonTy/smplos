@@ -1,0 +1,1 @@
+# smplOS Communication Edition -- extra AUR packages

@@ -1,0 +1,4 @@
+# smplOS Productivity Edition -- extra AUR packages
+
+# Knowledge management / note-taking (pre-compiled binary from GitHub releases)
+logseq-desktop-bin

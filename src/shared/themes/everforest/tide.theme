@@ -1,0 +1,42 @@
+# Tide prompt colors for everforest
+# Applied by theme-set — overrides Tide rainbow defaults
+
+# Core prompt segments
+set -U tide_pwd_bg_color 7FBBB3
+set -U tide_pwd_color_anchors 2D353B
+set -U tide_pwd_color_dirs 2D353B
+set -U tide_pwd_color_truncated_dirs 2D353B
+
+set -U tide_git_bg_color A7C080
+set -U tide_git_bg_color_unstable DBBC7F
+set -U tide_git_bg_color_urgent E67E80
+set -U tide_git_color_branch 2D353B
+set -U tide_git_color_conflicted 2D353B
+set -U tide_git_color_dirty 2D353B
+set -U tide_git_color_operation 2D353B
+set -U tide_git_color_staged 2D353B
+set -U tide_git_color_stash 2D353B
+set -U tide_git_color_untracked 2D353B
+set -U tide_git_color_upstream 2D353B
+
+set -U tide_character_color A7C080
+set -U tide_character_color_failure E67E80
+
+set -U tide_cmd_duration_bg_color DBBC7F
+set -U tide_cmd_duration_color 2D353B
+
+set -U tide_status_bg_color 374145
+set -U tide_status_bg_color_failure E67E80
+set -U tide_status_color A7C080
+set -U tide_status_color_failure DBBC7F
+
+set -U tide_prompt_color_frame_and_connection 475258
+set -U tide_prompt_color_separator_same_color 475258
+
+set -U tide_context_bg_color 374145
+set -U tide_context_color_default D3C6AA
+set -U tide_context_color_root DBBC7F
+set -U tide_context_color_ssh D3C6AA
+
+set -U tide_jobs_bg_color 374145
+set -U tide_jobs_color A7C080

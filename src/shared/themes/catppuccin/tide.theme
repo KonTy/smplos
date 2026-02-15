@@ -1,0 +1,42 @@
+# Tide prompt colors for catppuccin
+# Applied by theme-set — overrides Tide rainbow defaults
+
+# Core prompt segments
+set -U tide_pwd_bg_color 89B4FA
+set -U tide_pwd_color_anchors 1E1E2E
+set -U tide_pwd_color_dirs 1E1E2E
+set -U tide_pwd_color_truncated_dirs 1E1E2E
+
+set -U tide_git_bg_color A6E3A1
+set -U tide_git_bg_color_unstable F9E2AF
+set -U tide_git_bg_color_urgent F38BA8
+set -U tide_git_color_branch 1E1E2E
+set -U tide_git_color_conflicted 1E1E2E
+set -U tide_git_color_dirty 1E1E2E
+set -U tide_git_color_operation 1E1E2E
+set -U tide_git_color_staged 1E1E2E
+set -U tide_git_color_stash 1E1E2E
+set -U tide_git_color_untracked 1E1E2E
+set -U tide_git_color_upstream 1E1E2E
+
+set -U tide_character_color A6E3A1
+set -U tide_character_color_failure F38BA8
+
+set -U tide_cmd_duration_bg_color F9E2AF
+set -U tide_cmd_duration_color 1E1E2E
+
+set -U tide_status_bg_color 45475A
+set -U tide_status_bg_color_failure F38BA8
+set -U tide_status_color A6E3A1
+set -U tide_status_color_failure F9E2AF
+
+set -U tide_prompt_color_frame_and_connection 585B70
+set -U tide_prompt_color_separator_same_color 585B70
+
+set -U tide_context_bg_color 45475A
+set -U tide_context_color_default CDD6F4
+set -U tide_context_color_root F9E2AF
+set -U tide_context_color_ssh CDD6F4
+
+set -U tide_jobs_bg_color 45475A
+set -U tide_jobs_color A6E3A1

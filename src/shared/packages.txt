@@ -3,7 +3,6 @@
 
 # ── Shell ────────────────────────────────────────────────────
 fish
-starship
 
 # ── Terminal ─────────────────────────────────────────────────
 # st-wl/st built from source (src/compositors/*/st/)
@@ -15,6 +14,10 @@ imlib2
 doublecmd-qt6
 gvfs
 gvfs-mtp
+
+# ── Auto-mount (USB, CD, HDD) ────────────────────────────────
+udisks2
+udiskie
 
 # ── Audio ────────────────────────────────────────────────────
 pipewire
@@ -32,6 +35,7 @@ pamixer
 # ── Theming / GTK ────────────────────────────────────────────
 gtk3
 gtk4
+breeze           # cursor themes (breeze_cursors + Breeze_Light)
 qt5ct
 kvantum
 kvantum-qt5
@@ -44,7 +48,8 @@ noto-fonts-cjk
 noto-fonts-emoji
 
 # ── Launcher / Menus ─────────────────────────────────────────
-rofi
+# rofi / rofi-wayland is compositor-specific (they conflict)
+# See src/compositors/*/packages.txt
 
 # ── Notifications ────────────────────────────────────────────
 libnotify
@@ -52,6 +57,10 @@ dunst
 
 # ── Polkit ───────────────────────────────────────────────────
 polkit-gnome
+
+# ── Keyring / Credential Storage ─────────────────────────────
+gnome-keyring
+libsecret
 
 # ── CLI Utilities ────────────────────────────────────────────
 jq
@@ -111,6 +120,7 @@ plymouth
 
 # ── Applications ─────────────────────────────────────────────
 mpv
+keepassxc
 
 # ── XDG Portals ──────────────────────────────────────────────
 xdg-desktop-portal-gtk

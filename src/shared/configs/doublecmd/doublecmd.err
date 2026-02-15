@@ -1,0 +1,93 @@
+--------------- 23-11-2025, 18:43:08 ---------------
+| DC v1.1.30 gamma Rev. 815 -- x86_64-Linux-qt6
+| Arch Linux -- Qt 6.10.0 | PID 6933
+Unhandled exception: EAccessViolation: Access violation
+  Stack trace:
+  $000000000046CE1F in /usr/bin/doublecmd
+  $000000000046D00E in /usr/bin/doublecmd
+
+--------------- 30-11-2025, 00:09:34 ---------------
+| DC v1.1.30 gamma Rev. 815 -- x86_64-Linux-qt6
+| Arch Linux -- Qt 6.10.0 | PID 1472
+Unhandled exception: EAccessViolation: Access violation
+  Stack trace:
+  $0000000000000000 in 
+  $0000000000C22C84 in /usr/bin/doublecmd
+  $00000000007C69E1 in /usr/bin/doublecmd
+  $0000000000840FA1 in /usr/bin/doublecmd
+  $00007FB4771D753A in /usr/lib/libQt6Core.so.6
+  $00007FB4771E439C in /usr/lib/libQt6Core.so.6
+  $00007FB4771C44F6 in /usr/lib/libQt6Core.so.6
+  $00007FB4783020A0 in /usr/lib/libQt6Widgets.so.6
+  $00007FB47716A6C8 in /usr/lib/libQt6Core.so.6
+  $00007FB47732C6AF in /usr/lib/libQt6Core.so.6
+  $00007FB47744DA99 in /usr/lib/libQt6Core.so.6
+  $00007FB478DC5F8D in /usr/lib/libglib-2.0.so.0
+  $00007FB478DC7657 in /usr/lib/libglib-2.0.so.0
+  $00007FB478DC7865 in /usr/lib/libglib-2.0.so.0
+  $00007FB47744A9D2 in /usr/lib/libQt6Core.so.6
+  $000000000080B921 in /usr/bin/doublecmd
+  $00000000004CAA77 in /usr/bin/doublecmd
+
+--------------- 30-12-2025, 00:47:14 ---------------
+| DC v1.1.30 gamma Rev. 815 -- x86_64-Linux-qt6
+| Arch Linux -- Qt 6.10.1 | PID 1406
+Unhandled exception: EAccessViolation: Access violation
+  Stack trace:
+  $000000000046CE1F in /usr/bin/doublecmd
+  $000000000046D00E in /usr/bin/doublecmd
+
+--------------- 30-12-2025, 00:47:15 ---------------
+| DC v1.1.30 gamma Rev. 815 -- x86_64-Linux-qt6
+| Arch Linux -- Qt 6.10.1 | PID 1406
+Unhandled exception: EAccessViolation: Access violation
+  Stack trace:
+  $00007F2BA432C039 in /usr/lib/libQt6Widgets.so.6
+  $00007F2BA4333AE8 in /usr/lib/libQt6Widgets.so.6
+  $00007F2BA4312E0B in /usr/lib/libQt6Widgets.so.6
+  $00007F2BA454ED6E in /usr/lib/libQt6Widgets.so.6
+  $0000000000876350 in /usr/bin/doublecmd
+  $00000000008FDCBA in /usr/bin/doublecmd
+  $00000000008FE5F0 in /usr/bin/doublecmd
+  $0000000000655133 in /usr/bin/doublecmd
+  $00000000006FE9FC in /usr/bin/doublecmd
+  $000000000064D5E0 in /usr/bin/doublecmd
+  $000000000064D5B4 in /usr/bin/doublecmd
+  $0000000000651613 in /usr/bin/doublecmd
+  $000000000066E5D0 in /usr/bin/doublecmd
+  $00000000004B6210 in /usr/bin/doublecmd
+  $00000000004B81F9 in /usr/bin/doublecmd
+  $0000000000C0D5F9 in /usr/bin/doublecmd
+  $00000000004B1AAA in /usr/bin/doublecmd
+
+--------------- 17-01-2026, 18:08:26 ---------------
+| DC v1.1.30 gamma Rev. 815 -- x86_64-Linux-qt6
+| Arch Linux -- Qt 6.10.1 | PID 1696
+Unhandled exception: EAccessViolation: Access violation
+  Stack trace:
+  $000000000046CE1F in /usr/bin/doublecmd
+  $000000000046D00E in /usr/bin/doublecmd
+
+--------------- 17-01-2026, 18:08:27 ---------------
+| DC v1.1.30 gamma Rev. 815 -- x86_64-Linux-qt6
+| Arch Linux -- Qt 6.10.1 | PID 1696
+Unhandled exception: EAccessViolation: Access violation
+  Stack trace:
+  $0000000000000000 in 
+  $00007F0C5F933AE8 in /usr/lib/libQt6Widgets.so.6
+  $00007F0C5F912E0B in /usr/lib/libQt6Widgets.so.6
+  $00007F0C5FB4ED6E in /usr/lib/libQt6Widgets.so.6
+  $0000000000876350 in /usr/bin/doublecmd
+  $00000000008FDCBA in /usr/bin/doublecmd
+  $00000000008FE5F0 in /usr/bin/doublecmd
+  $0000000000655133 in /usr/bin/doublecmd
+  $00000000006FE9FC in /usr/bin/doublecmd
+  $000000000064D5E0 in /usr/bin/doublecmd
+  $000000000064D5B4 in /usr/bin/doublecmd
+  $0000000000651613 in /usr/bin/doublecmd
+  $000000000066E5D0 in /usr/bin/doublecmd
+  $00000000004B6210 in /usr/bin/doublecmd
+  $00000000004B81F9 in /usr/bin/doublecmd
+  $0000000000C0D5F9 in /usr/bin/doublecmd
+  $00000000004B1AAA in /usr/bin/doublecmd
+

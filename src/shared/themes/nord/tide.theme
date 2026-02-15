@@ -1,0 +1,42 @@
+# Tide prompt colors for nord
+# Applied by theme-set — overrides Tide rainbow defaults
+
+# Core prompt segments
+set -U tide_pwd_bg_color 81A1C1
+set -U tide_pwd_color_anchors 2E3440
+set -U tide_pwd_color_dirs 2E3440
+set -U tide_pwd_color_truncated_dirs 2E3440
+
+set -U tide_git_bg_color A3BE8C
+set -U tide_git_bg_color_unstable EBCB8B
+set -U tide_git_bg_color_urgent BF616A
+set -U tide_git_color_branch 2E3440
+set -U tide_git_color_conflicted 2E3440
+set -U tide_git_color_dirty 2E3440
+set -U tide_git_color_operation 2E3440
+set -U tide_git_color_staged 2E3440
+set -U tide_git_color_stash 2E3440
+set -U tide_git_color_untracked 2E3440
+set -U tide_git_color_upstream 2E3440
+
+set -U tide_character_color A3BE8C
+set -U tide_character_color_failure BF616A
+
+set -U tide_cmd_duration_bg_color EBCB8B
+set -U tide_cmd_duration_color 2E3440
+
+set -U tide_status_bg_color 3B4252
+set -U tide_status_bg_color_failure BF616A
+set -U tide_status_color A3BE8C
+set -U tide_status_color_failure EBCB8B
+
+set -U tide_prompt_color_frame_and_connection 4C566A
+set -U tide_prompt_color_separator_same_color 4C566A
+
+set -U tide_context_bg_color 3B4252
+set -U tide_context_color_default D8DEE9
+set -U tide_context_color_root EBCB8B
+set -U tide_context_color_ssh D8DEE9
+
+set -U tide_jobs_bg_color 3B4252
+set -U tide_jobs_color A3BE8C

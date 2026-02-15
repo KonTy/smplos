@@ -1,0 +1,42 @@
+# Tide prompt colors for ristretto
+# Applied by theme-set — overrides Tide rainbow defaults
+
+# Core prompt segments
+set -U tide_pwd_bg_color F38D70
+set -U tide_pwd_color_anchors 2C2525
+set -U tide_pwd_color_dirs 2C2525
+set -U tide_pwd_color_truncated_dirs 2C2525
+
+set -U tide_git_bg_color ADDA78
+set -U tide_git_bg_color_unstable F9CC6C
+set -U tide_git_bg_color_urgent FD6883
+set -U tide_git_color_branch 2C2525
+set -U tide_git_color_conflicted 2C2525
+set -U tide_git_color_dirty 2C2525
+set -U tide_git_color_operation 2C2525
+set -U tide_git_color_staged 2C2525
+set -U tide_git_color_stash 2C2525
+set -U tide_git_color_untracked 2C2525
+set -U tide_git_color_upstream 2C2525
+
+set -U tide_character_color ADDA78
+set -U tide_character_color_failure FD6883
+
+set -U tide_cmd_duration_bg_color F9CC6C
+set -U tide_cmd_duration_color 2C2525
+
+set -U tide_status_bg_color 3D3535
+set -U tide_status_bg_color_failure FD6883
+set -U tide_status_color ADDA78
+set -U tide_status_color_failure F9CC6C
+
+set -U tide_prompt_color_frame_and_connection 948A8B
+set -U tide_prompt_color_separator_same_color 948A8B
+
+set -U tide_context_bg_color 3D3535
+set -U tide_context_color_default E6D9DB
+set -U tide_context_color_root F9CC6C
+set -U tide_context_color_ssh E6D9DB
+
+set -U tide_jobs_bg_color 3D3535
+set -U tide_jobs_color ADDA78

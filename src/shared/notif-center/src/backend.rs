@@ -12,6 +12,18 @@ pub struct Notification {
     pub body: String,
     pub date: String,
     pub time: String,
+    pub action: String,
+}
+
+/// Map well-known notification summaries to shell commands.
+/// These are notifications sent by smplOS scripts (first-run, etc.)
+/// that should be actionable from the notif-center even though
+/// dunst history doesn't preserve the original dunst action.
+fn action_for_summary(summary: &str) -> String {
+    match summary {
+        "System Update" => "smplos-update".to_string(),
+        _ => String::new(),
+    }
 }
 
 fn icon_for_app(app: &str) -> String {
@@ -102,6 +114,7 @@ pub fn get_notifications() -> Vec<Notification> {
             .map(|dt| dt.with_timezone(&Local))
             .unwrap_or_else(Local::now);
 
+        let action = action_for_summary(&summary);
         notifications.push(Notification {
             id,
             appname: appname.clone(),
@@ -111,6 +124,7 @@ pub fn get_notifications() -> Vec<Notification> {
             body,
             date: dt.format("%b %d").to_string(),
             time: dt.format("%I:%M %p").to_string().trim_start_matches('0').to_string(),
+            action,
         });
     }
 
@@ -128,16 +142,33 @@ pub fn clear_all_notifications() {
     let _ = Command::new("dunstctl").arg("history-clear").status();
 }
 
-pub fn open_notification(appname: &str, desktop_entry: &str) {
-    if !desktop_entry.is_empty() {
-        let _ = Command::new("gtk-launch").arg(desktop_entry).status();
-        return;
+pub fn open_notification(appname: &str, desktop_entry: &str, action: &str) -> bool {
+    // 1. Run the action command if one is defined
+    if !action.is_empty() {
+        let result = Command::new("sh").arg("-lc").arg(action).spawn();
+        return result.is_ok();
     }
 
-    if !appname.is_empty() {
-        let _ = Command::new("sh")
-            .arg("-lc")
-            .arg(format!("command -v '{appname}' >/dev/null 2>&1 && '{appname}' || true"))
-            .status();
+    // 2. Launch via desktop entry
+    if !desktop_entry.is_empty() {
+        let _ = Command::new("gtk-launch").arg(desktop_entry).spawn();
+        return true;
     }
+
+    // 3. Launch by appname if it's an executable
+    if !appname.is_empty() {
+        let check = Command::new("sh")
+            .arg("-lc")
+            .arg(format!("command -v '{appname}' >/dev/null 2>&1"))
+            .status();
+        if check.map(|s| s.success()).unwrap_or(false) {
+            let _ = Command::new("sh")
+                .arg("-lc")
+                .arg(format!("'{appname}'"))
+                .spawn();
+            return true;
+        }
+    }
+
+    false
 }

@@ -61,9 +61,20 @@ fi
 # Always ensure all stock themes are deployed (skel may only have partial data)
 if [[ -d "$SMPLOS_PATH/themes" ]]; then
   echo "==> Deploying theme system..."
-  # Themes already copied here by automated_script.sh — nothing to do
-  # but verify they're present
   :  # themes already in place
+fi
+
+# Deploy edition desktop entries (web app wrappers like Discord)
+if [[ -d "$SMPLOS_PATH/applications" ]]; then
+  echo "==> Deploying edition desktop entries..."
+  mkdir -p "$HOME/.local/share/applications"
+  cp "$SMPLOS_PATH/applications/"*.desktop "$HOME/.local/share/applications/" 2>/dev/null || true
+fi
+# Deploy edition icons
+if [[ -d "$SMPLOS_PATH/icons/hicolor" ]]; then
+  echo "==> Deploying edition icons..."
+  sudo cp -r "$SMPLOS_PATH/icons/hicolor" /usr/share/icons/
+  sudo gtk-update-icon-cache /usr/share/icons/hicolor 2>/dev/null || true
 fi
 
 # Deploy custom os-release (smplOS branding)
@@ -96,6 +107,32 @@ if [[ -n "$default_wp" ]]; then
   mkdir -p "$HOME/Pictures/Wallpapers"
   cp "$default_wp" "$HOME/Pictures/Wallpapers/$(basename "$default_wp")"
 fi
+
+# Configure VS Code / VSCodium to use gnome-libsecret for credential storage
+# Without this, Electron may fail to auto-detect the keyring on Wayland
+for argv_dir in "$HOME/.vscode" "$HOME/.vscode-oss"; do
+  mkdir -p "$argv_dir"
+  cat > "$argv_dir/argv.json" <<'ARGVEOF'
+{
+  "password-store": "gnome-libsecret"
+}
+ARGVEOF
+done
+
+# Configure PAM for gnome-keyring auto-unlock
+# Without this, gnome-keyring-daemon starts but the keyring stays locked,
+# causing VS Code/Brave/git to show "no keyring found" errors
+echo "==> Configuring PAM for gnome-keyring auto-unlock..."
+for pam_file in /etc/pam.d/login /etc/pam.d/greetd; do
+  if [[ -f "$pam_file" ]]; then
+    grep -q pam_gnome_keyring "$pam_file" || {
+      # auth: unlock the keyring with the login password
+      echo "auth       optional     pam_gnome_keyring.so" | sudo tee -a "$pam_file" >/dev/null
+      # session: auto-start the daemon
+      echo "session    optional     pam_gnome_keyring.so auto_start" | sudo tee -a "$pam_file" >/dev/null
+    }
+  fi
+done
 
 # Setup greetd with autologin
 echo "==> Setting up greetd autologin..."

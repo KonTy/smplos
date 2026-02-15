@@ -71,12 +71,13 @@ export component MainWindow inherits Window {
             return;
         }
 
+        // Approximate scroll position using row-step (works for most rows)
         if (list_flick.viewport-y + root.selected-index * root.row-step < 0px) {
-            list_flick.viewport-y += 0px - (list_flick.viewport-y + root.selected-index * root.row-step);
+            list_flick.viewport-y = 0px - root.selected-index * root.row-step;
         }
 
         if (list_flick.viewport-y + root.selected-index * root.row-step + root.row-height > list_flick.height) {
-            list_flick.viewport-y -= list_flick.viewport-y + root.selected-index * root.row-step + root.row-height - list_flick.height;
+            list_flick.viewport-y = list_flick.height - root.selected-index * root.row-step - root.row-height;
         }
 
         root.clamp-viewport();
@@ -276,19 +277,13 @@ export component MainWindow inherits Window {
                             width: parent.width - 14px;
                             height: parent.height;
                             viewport-width: self.width;
-                            viewport-height: root.notifications.length * root.row-step;
                             interactive: true;
 
-                            Rectangle {
-                                width: list_flick.viewport-width;
-                                height: list_flick.viewport-height;
-                                background: transparent;
+                            VerticalLayout {
+                                alignment: start;
+                                spacing: root.row-spacing;
 
                                 for n[index] in root.notifications: Rectangle {
-                                    x: 0px;
-                                    y: index * root.row-step;
-                                    width: parent.width;
-                                    height: root.row-height;
                                     border-radius: Theme.card_radius;
                                     border-width: 0px;
                                     background: root.selected-index == index
@@ -311,100 +306,91 @@ export component MainWindow inherits Window {
                                         }
                                     }
 
-                                    Rectangle {
-                                        x: 4px;
-                                        y: 4px;
-                                        width: parent.width - 8px;
-                                        height: parent.height - 8px;
-                                        background: transparent;
+                                    HorizontalLayout {
+                                        padding-left: 8px;
+                                        padding-right: 4px;
+                                        padding-top: 4px;
+                                        padding-bottom: 4px;
+                                        spacing: 4px;
 
+                                        // Icon
                                         VerticalLayout {
-                                            alignment: center;
-                                            GridLayout {
-                                                spacing-horizontal: 4px;
-                                                spacing-vertical: 1px;
+                                            alignment: start;
+                                            padding-top: 2px;
+                                            Text {
+                                                width: 26px;
+                                                text: n.icon == "" ? "󰂚" : n.icon;
+                                                color: Theme.accent;
+                                                font-size: 20px;
+                                                horizontal-alignment: center;
+                                            }
+                                        }
 
+                                        // Summary + body
+                                        VerticalLayout {
+                                            horizontal-stretch: 1;
+                                            spacing: 1px;
+                                            alignment: start;
+                                            padding-top: 2px;
+                                            Text {
+                                                text: n.summary;
+                                                color: Theme.fg;
+                                                font-weight: 700;
+                                                font-size: 13px;
+                                                overflow: elide;
+                                            }
+                                            if n.body != "": Text {
+                                                text: n.body;
+                                                color: Theme.fg_dim;
+                                                font-size: 11px;
+                                                wrap: word-wrap;
+                                            }
+                                        }
+
+                                        // Date/time
+                                        VerticalLayout {
+                                            alignment: start;
+                                            padding-top: 1px;
+                                            spacing: 0px;
+                                            Text {
+                                                text: n.date;
+                                                color: Theme.fg_dim;
+                                                font-size: 9px;
+                                                horizontal-alignment: right;
+                                            }
+                                            Text {
+                                                text: n.time;
+                                                color: Theme.fg_dim;
+                                                font-size: 10px;
+                                                horizontal-alignment: right;
+                                            }
+                                        }
+
+                                        // Dismiss button
+                                        VerticalLayout {
+                                            alignment: start;
+                                            padding-top: 2px;
+                                            Rectangle {
+                                                border-radius: Theme.button_radius;
+                                                background: dismiss_touch.has-hover ? Theme.red : transparent;
+                                                width: 24px;
+                                                height: 24px;
+                                                opacity: row_touch.has-hover || dismiss_touch.has-hover ? 1.0 : 0.4;
                                                 Text {
-                                                    row: 0;
-                                                    col: 0;
-                                                    rowspan: 2;
-                                                    width: 26px;
-                                                    text: n.icon == "" ? "󰂚" : n.icon;
-                                                    color: Theme.accent;
-                                                    font-size: 20px;
+                                                    text: "✕";
+                                                    color: dismiss_touch.has-hover ? Theme.bg : Theme.fg_dim;
+                                                    font-size: 15px;
                                                     horizontal-alignment: center;
                                                     vertical-alignment: center;
                                                 }
-
-                                                Text {
-                                                    row: 0;
-                                                    col: 1;
-                                                    horizontal-stretch: 1;
-                                                    text: n.summary;
-                                                    color: Theme.fg;
-                                                    font-weight: 700;
-                                                    font-size: 13px;
-                                                    overflow: elide;
-                                                }
-
-                                                Text {
-                                                    row: 1;
-                                                    col: 1;
-                                                    horizontal-stretch: 1;
-                                                    text: n.body == "" ? " " : n.body;
-                                                    color: Theme.fg_dim;
-                                                    font-size: 11px;
-                                                    overflow: elide;
-                                                }
-
-                                                Text {
-                                                    row: 0;
-                                                    col: 2;
-                                                    text: n.date;
-                                                    color: Theme.fg_dim;
-                                                    font-size: 9px;
-                                                    horizontal-alignment: right;
-                                                    vertical-alignment: center;
-                                                }
-
-                                                Text {
-                                                    row: 1;
-                                                    col: 2;
-                                                    text: n.time;
-                                                    color: Theme.fg_dim;
-                                                    font-size: 10px;
-                                                    horizontal-alignment: right;
-                                                    vertical-alignment: center;
-                                                }
-
-                                                VerticalLayout {
-                                                    row: 0;
-                                                    col: 3;
-                                                    rowspan: 2;
-                                                    alignment: center;
-                                                    Rectangle {
-                                                        border-radius: Theme.button_radius;
-                                                        background: dismiss_touch.has-hover ? Theme.red : transparent;
-                                                        width: 24px;
-                                                        height: 24px;
-                                                        opacity: row_touch.has-hover || dismiss_touch.has-hover ? 1.0 : 0.4;
-                                                        Text {
-                                                            text: "✕";
-                                                            color: dismiss_touch.has-hover ? Theme.bg : Theme.fg_dim;
-                                                            font-size: 15px;
-                                                            horizontal-alignment: center;
-                                                            vertical-alignment: center;
-                                                        }
-                                                        dismiss_touch := TouchArea {
-                                                            clicked => {
-                                                                key_scope.focus();
-                                                                root.dismiss(n.id);
-                                                            }
-                                                            scroll-event(event) => {
-                                                                root.scroll-by(event.delta-y);
-                                                                return accept;
-                                                            }
-                                                        }
+                                                dismiss_touch := TouchArea {
+                                                    clicked => {
+                                                        key_scope.focus();
+                                                        root.dismiss(n.id);
+                                                    }
+                                                    scroll-event(event) => {
+                                                        root.scroll-by(event.delta-y);
+                                                        return accept;
                                                     }
                                                 }
                                             }

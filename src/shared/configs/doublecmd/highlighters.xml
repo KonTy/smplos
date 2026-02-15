@@ -1,0 +1,98 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<doublecmd>
+  <Highlighters Version="2">
+    <Highlighter Tag="0" Name="Plain text">
+      <DefaultFilter/>
+    </Highlighter>
+    <Highlighter Tag="0" Name="Assembler (x86)">
+      <DefaultFilter>Assembler (x86)|*.ASM;*.S</DefaultFilter>
+    </Highlighter>
+    <Highlighter Tag="0" Name="C#">
+      <DefaultFilter>C#|*.CS</DefaultFilter>
+    </Highlighter>
+    <Highlighter Tag="1" Name="C++">
+      <DefaultFilter>C++ Files (*.c,*.cpp,*.h,*.hpp,*.hh)|*.c;*.cpp;*.h;*.hpp;*.hh</DefaultFilter>
+    </Highlighter>
+    <Highlighter Tag="1" Name="Cascading style sheets">
+      <DefaultFilter>Cascading Stylesheets (*.css)|*.css</DefaultFilter>
+    </Highlighter>
+    <Highlighter Tag="0" Name="DC Error File">
+      <DefaultFilter>DC Error File|*.err</DefaultFilter>
+    </Highlighter>
+    <Highlighter Tag="1" Name="Diff File">
+      <DefaultFilter>Difference Files (*.diff,*.patch)|*.diff;*.patch</DefaultFilter>
+    </Highlighter>
+    <Highlighter Tag="0" Name="Go">
+      <DefaultFilter>Go|*.GO</DefaultFilter>
+    </Highlighter>
+    <Highlighter Tag="1" Name="HTML document">
+      <DefaultFilter>HTML Document (*.htm,*.html)|*.htm;*.html</DefaultFilter>
+    </Highlighter>
+    <Highlighter Tag="1" Name="INI file">
+      <DefaultFilter>INI Files (*.ini)|*.ini</DefaultFilter>
+    </Highlighter>
+    <Highlighter Tag="0" Name="JSON">
+      <DefaultFilter>JSON|*.json</DefaultFilter>
+    </Highlighter>
+    <Highlighter Tag="1" Name="Java">
+      <DefaultFilter>Java Files (*.java)|*.java</DefaultFilter>
+    </Highlighter>
+    <Highlighter Tag="0" Name="JavaScript">
+      <DefaultFilter>JavaScript|*.js;*.ts;*.mjs;*.cjs</DefaultFilter>
+    </Highlighter>
+    <Highlighter Tag="0" Name="Kotlin">
+      <DefaultFilter>Kotlin|*.kt;*.kts</DefaultFilter>
+    </Highlighter>
+    <Highlighter Tag="1" Name="Lazarus Form definition">
+      <DefaultFilter>Lazarus Form Files (*.lfm)|*.lfm</DefaultFilter>
+    </Highlighter>
+    <Highlighter Tag="1" Name="Lua Script">
+      <DefaultFilter>Lua Script File (*.lua)|*.lua</DefaultFilter>
+    </Highlighter>
+    <Highlighter Tag="1" Name="MS-DOS batch language">
+      <DefaultFilter>MS-DOS Batch Files (*.bat;*.cmd)|*.bat;*.cmd</DefaultFilter>
+    </Highlighter>
+    <Highlighter Tag="1" Name="ObjectPascal">
+      <DefaultFilter>Pascal Files (*.pas,*.dpr,*.dpk,*.inc,*.pp,*.lpr)|*.pas;*.dpr;*.dpk;*.inc;*.pp;*.lpr</DefaultFilter>
+    </Highlighter>
+    <Highlighter Tag="1" Name="PHP">
+      <DefaultFilter>PHP Files (*.php,*.php3,*.phtml,*.inc)|*.php;*.php3;*.phtml;*.inc</DefaultFilter>
+    </Highlighter>
+    <Highlighter Tag="1" Name="Perl">
+      <DefaultFilter>Perl Files (*.pl,*.pm,*.cgi)|*.pl;*.pm;*.cgi</DefaultFilter>
+    </Highlighter>
+    <Highlighter Tag="0" Name="PowerShell">
+      <DefaultFilter>PowerShell|*.ps1;*.psm1;*.psd1</DefaultFilter>
+    </Highlighter>
+    <Highlighter Tag="1" Name="Python">
+      <DefaultFilter>Python Files (*.py)|*.py</DefaultFilter>
+    </Highlighter>
+    <Highlighter Tag="0" Name="QML">
+      <DefaultFilter>QML|*.qml</DefaultFilter>
+    </Highlighter>
+    <Highlighter Tag="0" Name="Rust">
+      <DefaultFilter>Rust|*.RS</DefaultFilter>
+    </Highlighter>
+    <Highlighter Tag="1" Name="SQL">
+      <DefaultFilter>SQL Files (*.sql)|*.sql</DefaultFilter>
+    </Highlighter>
+    <Highlighter Tag="0" Name="Swift">
+      <DefaultFilter>Swift|*.SWIFT</DefaultFilter>
+    </Highlighter>
+    <Highlighter Tag="1" Name="TeX">
+      <DefaultFilter>TeX Files (*.tex)|*.tex</DefaultFilter>
+    </Highlighter>
+    <Highlighter Tag="1" Name="UNIX Shell Script">
+      <DefaultFilter>UNIX Shell Scripts (*.sh)|*.sh</DefaultFilter>
+    </Highlighter>
+    <Highlighter Tag="1" Name="XML document">
+      <DefaultFilter>XML Document (*.xml,*.xsd,*.xsl,*.xslt,*.dtd)|*.xml;*.xsd;*.xsl;*.xslt;*.dtd</DefaultFilter>
+    </Highlighter>
+    <Highlighter Tag="1" Name="YAML">
+      <DefaultFilter>YAML files (*.yaml;*.yml)|*.yaml;*.yml</DefaultFilter>
+    </Highlighter>
+    <Highlighter Tag="1" Name="po language files">
+      <DefaultFilter>Po Files (*.po,*.pot)|*.po;*.pot</DefaultFilter>
+    </Highlighter>
+  </Highlighters>
+</doublecmd>

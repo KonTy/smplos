@@ -1,0 +1,42 @@
+# Tide prompt colors for osaka-jade
+# Applied by theme-set — overrides Tide rainbow defaults
+
+# Core prompt segments
+set -U tide_pwd_bg_color 509475
+set -U tide_pwd_color_anchors 111C18
+set -U tide_pwd_color_dirs 111C18
+set -U tide_pwd_color_truncated_dirs 111C18
+
+set -U tide_git_bg_color 549E6A
+set -U tide_git_bg_color_unstable E5C736
+set -U tide_git_bg_color_urgent FF5345
+set -U tide_git_color_branch 111C18
+set -U tide_git_color_conflicted 111C18
+set -U tide_git_color_dirty 111C18
+set -U tide_git_color_operation 111C18
+set -U tide_git_color_staged 111C18
+set -U tide_git_color_stash 111C18
+set -U tide_git_color_untracked 111C18
+set -U tide_git_color_upstream 111C18
+
+set -U tide_character_color 549E6A
+set -U tide_character_color_failure FF5345
+
+set -U tide_cmd_duration_bg_color E5C736
+set -U tide_cmd_duration_color 111C18
+
+set -U tide_status_bg_color 1A2B22
+set -U tide_status_bg_color_failure FF5345
+set -U tide_status_color 549E6A
+set -U tide_status_color_failure E5C736
+
+set -U tide_prompt_color_frame_and_connection 53685B
+set -U tide_prompt_color_separator_same_color 53685B
+
+set -U tide_context_bg_color 1A2B22
+set -U tide_context_color_default C1C497
+set -U tide_context_color_root E5C736
+set -U tide_context_color_ssh C1C497
+
+set -U tide_jobs_bg_color 1A2B22
+set -U tide_jobs_color 549E6A

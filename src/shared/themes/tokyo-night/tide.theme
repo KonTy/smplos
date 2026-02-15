@@ -1,0 +1,42 @@
+# Tide prompt colors for tokyo-night
+# Applied by theme-set — overrides Tide rainbow defaults
+
+# Core prompt segments
+set -U tide_pwd_bg_color 7AA2F7
+set -U tide_pwd_color_anchors 1A1B26
+set -U tide_pwd_color_dirs 1A1B26
+set -U tide_pwd_color_truncated_dirs 1A1B26
+
+set -U tide_git_bg_color 9ECE6A
+set -U tide_git_bg_color_unstable E0AF68
+set -U tide_git_bg_color_urgent F7768E
+set -U tide_git_color_branch 1A1B26
+set -U tide_git_color_conflicted 1A1B26
+set -U tide_git_color_dirty 1A1B26
+set -U tide_git_color_operation 1A1B26
+set -U tide_git_color_staged 1A1B26
+set -U tide_git_color_stash 1A1B26
+set -U tide_git_color_untracked 1A1B26
+set -U tide_git_color_upstream 1A1B26
+
+set -U tide_character_color 9ECE6A
+set -U tide_character_color_failure F7768E
+
+set -U tide_cmd_duration_bg_color E0AF68
+set -U tide_cmd_duration_color 1A1B26
+
+set -U tide_status_bg_color 24283B
+set -U tide_status_bg_color_failure F7768E
+set -U tide_status_color 9ECE6A
+set -U tide_status_color_failure E0AF68
+
+set -U tide_prompt_color_frame_and_connection 444B6A
+set -U tide_prompt_color_separator_same_color 444B6A
+
+set -U tide_context_bg_color 24283B
+set -U tide_context_color_default A9B1D6
+set -U tide_context_color_root E0AF68
+set -U tide_context_color_ssh A9B1D6
+
+set -U tide_jobs_bg_color 24283B
+set -U tide_jobs_color 9ECE6A

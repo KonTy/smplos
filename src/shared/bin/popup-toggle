@@ -10,7 +10,7 @@
 EWW="eww --config $HOME/.config/eww"
 
 # All known popup windows (add new popups here)
-POPUPS=(calendar-popup quick-settings notification-hub)
+POPUPS=(calendar-popup quick-settings notification-hub usb-popup)
 
 # eww active-windows outputs "id: name" per line
 is_window_open() {
