@@ -4,11 +4,11 @@
 #
 # Shows two persistent notifications:
 #   1. Keybindings -- text-only, dismiss with click
-#   2. Update -- clickable, opens terminal with pacman -Syu
+#   2. Update -- clickable action, opens terminal with smplos-update
 #
-# dunst left-click = do_action + close. For the update notification,
-# clicking triggers the action (opens terminal). For keybindings,
-# clicking just dismisses (no action defined).
+# dunst left-click = do_action + close. The update notification uses
+# dunstify -A which blocks until clicked, then launches smplos-update.
+# For keybindings, clicking just dismisses (no action defined).
 
 SENTINEL="$HOME/.local/state/smplos/first-run.done"
 [[ -f "$SENTINEL" ]] && exit 0
@@ -24,7 +24,11 @@ dunstify -t 0 -i input-keyboard \
   "Learn Keybindings" \
   "Super  Start menu\nSuper+K  All keybindings\nSuper+Shift+T  Change theme\nSuper+Enter  Terminal"
 
-# 2. Update (persistent -- notif-center handles double-click action)
-dunstify -t 0 -i system-software-update \
-  "System Update" \
-  "When you have internet, click here to update"
+# 2. Update (persistent, clickable -- dunstify -A blocks until user clicks)
+(
+  action=$(dunstify -t 0 -i system-software-update \
+    -A "update,Update now" \
+    "System Update" \
+    "When you have internet, click here to update")
+  [[ "$action" == "update" ]] && smplos-update
+) &
