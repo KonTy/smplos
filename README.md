@@ -48,6 +48,15 @@ We couldn't find a notification center that met our requirements: low RAM usage,
 
 st is our terminal of choice — a suckless terminal patched for the features that matter. It starts in milliseconds and idles at around 25 MB of RAM. We added SIXEL image support, scrollback, clipboard integration, Page Up/Down, and alpha transparency. The result is a terminal that can display inline images just like Kitty (~350 MB), but at a fraction of the footprint. Every fix was made in `config.def.h` following the suckless philosophy: if you don't need it, it doesn't exist.
 
+We also fixed several upstream bugs found in the suckless st codebase:
+
+- **History buffer allocation** — the default scrollback patch pre-allocates the entire buffer (HISTSIZE x columns) at startup, wasting tens of MB. We rewrote it to use page-based lazy allocation (256-line pages, allocated on demand).
+- **HISTSIZE default** — upstream ships with `HISTSIZE = 99999` (~80 MB for a wide terminal). Reduced to 2000 lines, which is plenty for real use.
+- **Page Up/Down not working** — the scrollback patch only bound Shift+PageUp/Down but left plain PageUp/Down doing nothing. Added `MOD_MASK_NONE` bindings so both work.
+- **X11-only patches breaking Wayland** — several patches (e.g. `sixelbyteorder = LSBFirst`) use X11 macros that don't exist in the Wayland build. Identified and disabled them.
+- **Font fallback crash** — st-wl crashed on launch when no `-f` flag was given. Fixed the default font fallback path.
+- **SIXEL linker errors** — enabling the SIXEL patch in `patches.def.h` alone wasn't enough; the SIXEL source files and imlib2 libs also need uncommenting in `config.mk`.
+
 <a href="images/4.term.png"><img src="images/4.term.png" width="720" /></a>
 
 #### Themes
