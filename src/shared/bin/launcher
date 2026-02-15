@@ -1,22 +1,38 @@
 #!/bin/bash
-# smplOS Start Menu -- rofi application launcher
-# Sources: .desktop files (system + user), Flatpaks, AppImages
-# Keybinding: Super+Space | EWW bar logo button
+# smplOS launcher -- rofi with Apps (drun) + Settings (script mode) tabs
+# Inspired by adi1090x type-1/style-15
+# Keybinding: Super (bare key press) | EWW bar logo button
+#
+# Uses native rofi modi -- mode-switcher renders clickable tabs.
+# Alt+A / Alt+S jump to a specific mode AND clear the search filter
+# by restarting rofi via kb-custom exit codes.
+#
+# Exit codes:
+#   0  -- user selected an entry (rofi handles launch for drun;
+#          settings script-mode handles launch internally)
+#   1  -- cancelled (Escape)
+#   10 -- kb-custom-1 (Alt+A) → restart showing Apps
+#   11 -- kb-custom-2 (Alt+S) → restart showing Settings
 
-source rofi-helpers
+THEME="$HOME/.config/rofi/smplos-launcher.rasi"
+MODE="${1:-drun}"
 
-# Register AppImages as .desktop entries (fast, skips up-to-date)
-appimage-register
+# Ensure settings cache exists
+[[ ! -f "$HOME/.cache/smplos/app_index" ]] && rebuild-app-cache 2>/dev/null
 
-# Ensure Flatpak .desktop files are discoverable
-for fp_dir in /var/lib/flatpak/exports/share "$HOME/.local/share/flatpak/exports/share"; do
-  [[ -d "$fp_dir" && ":$XDG_DATA_DIRS:" != *":$fp_dir:"* ]] && \
-    export XDG_DATA_DIRS="$fp_dir:${XDG_DATA_DIRS:-/usr/local/share:/usr/share}"
+theme_args=()
+[[ -f "$THEME" ]] && theme_args=(-theme "$THEME")
+
+while true; do
+  rofi -show "$MODE" -show-icons \
+    -kb-custom-1 "Alt+a" \
+    -kb-custom-2 "Alt+s" \
+    "${theme_args[@]}"
+  rc=$?
+
+  case $rc in
+    10) MODE=drun     ; continue ;;  # Alt+A → Apps (fresh filter)
+    11) MODE=settings ; continue ;;  # Alt+S → Settings (fresh filter)
+    *)  exit 0 ;;                    # 0 = launched, 1 = Escape
+  esac
 done
-
-rofi_drun \
-  -p "" \
-  -matching fuzzy \
-  -sorting-method fzf \
-  -drun-display-format "{name}" \
-  -scroll-method 1

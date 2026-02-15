@@ -1,0 +1,11 @@
+[Unit]
+Description=smplOS app cache builder
+Documentation=man:rebuild-app-cache
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/rebuild-app-cache
+StandardOutput=null
+
+[Install]
+WantedBy=default.target

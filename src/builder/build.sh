@@ -678,6 +678,10 @@ setup_airootfs() {
         mkdir -p "$skel/.config/hypr" && cp "$theme_src/hyprland.conf" "$skel/.config/hypr/theme.conf" 2>/dev/null || true
         cp "$theme_src/hyprlock.conf" "$skel/.config/hypr/hyprlock-theme.conf" 2>/dev/null || true
         mkdir -p "$skel/.config/foot" && cp "$theme_src/foot.ini" "$skel/.config/foot/theme.ini" 2>/dev/null || true
+        # Rofi themes (main launcher + legacy)
+        mkdir -p "$skel/.config/rofi"
+        cp "$theme_src/rofi.rasi" "$skel/.config/rofi/smplos.rasi" 2>/dev/null || true
+        cp "$theme_src/smplos-launcher.rasi" "$skel/.config/rofi/smplos-launcher.rasi" 2>/dev/null || true
         # st -- no config file to copy, colors applied at runtime via OSC escape sequences
         mkdir -p "$skel/.config/btop/themes" && cp "$theme_src/btop.theme" "$skel/.config/btop/themes/current.theme" 2>/dev/null || true
         # Fish shell theme colors
@@ -900,6 +904,13 @@ AUTOLOGIN
     echo "smplos" > "$airootfs/etc/hostname"
     echo "LANG=en_US.UTF-8" > "$airootfs/etc/locale.conf"
     echo "en_US.UTF-8 UTF-8" >> "$airootfs/etc/locale.gen"
+
+    # Enable systemd user units (app cache builder)
+    local skel="$airootfs/etc/skel"
+    local user_wants="$skel/.config/systemd/user/default.target.wants"
+    mkdir -p "$user_wants"
+    ln -sf ../smplos-app-cache.service "$user_wants/smplos-app-cache.service" 2>/dev/null || true
+    ln -sf ../smplos-app-cache.path "$user_wants/smplos-app-cache.path" 2>/dev/null || true
 }
 
 setup_helper_scripts() {

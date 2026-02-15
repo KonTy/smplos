@@ -16,6 +16,10 @@ doublecmd-qt6
 gvfs
 gvfs-mtp
 
+# ── Auto-mount (USB, CD, HDD) ────────────────────────────────
+udisks2
+udiskie
+
 # ── Audio ────────────────────────────────────────────────────
 pipewire
 pipewire-alsa
@@ -44,7 +48,8 @@ noto-fonts-cjk
 noto-fonts-emoji
 
 # ── Launcher / Menus ─────────────────────────────────────────
-rofi
+# rofi / rofi-wayland is compositor-specific (they conflict)
+# See src/compositors/*/packages.txt
 
 # ── Notifications ────────────────────────────────────────────
 libnotify
@@ -52,6 +57,10 @@ dunst
 
 # ── Polkit ───────────────────────────────────────────────────
 polkit-gnome
+
+# ── Keyring / Credential Storage ─────────────────────────────
+gnome-keyring
+libsecret
 
 # ── CLI Utilities ────────────────────────────────────────────
 jq

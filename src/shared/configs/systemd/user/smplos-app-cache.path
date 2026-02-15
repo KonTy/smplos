@@ -1,0 +1,14 @@
+[Unit]
+Description=Watch .desktop and app dirs for cache rebuild
+
+[Path]
+PathChanged=/usr/share/applications
+PathChanged=/usr/local/share/applications
+PathChanged=%h/.local/share/applications
+PathChanged=/var/lib/flatpak/exports/share/applications
+PathChanged=%h/.local/share/flatpak/exports/share/applications
+PathChanged=%h/Applications
+PathChanged=%h/AppImages
+
+[Install]
+WantedBy=default.target

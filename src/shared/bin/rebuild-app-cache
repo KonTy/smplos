@@ -1,0 +1,118 @@
+#!/bin/bash
+# smplOS app cache builder -- indexes .desktop, Flatpak, and AppImage apps
+# Outputs: ~/.cache/smplos/app_index (one entry per line)
+# Format:  Name;Exec;Category;IconName
+# Categories: app, settings
+# Run on boot via systemd, or on-demand when .desktop files change.
+
+set -euo pipefail
+
+CACHE_DIR="$HOME/.cache/smplos"
+CACHE_FILE="$CACHE_DIR/app_index"
+CACHE_TMP="$CACHE_FILE.tmp"
+
+mkdir -p "$CACHE_DIR"
+
+# ── Parse a .desktop file into cache format ──
+parse_desktop() {
+  local file="$1"
+  local name="" exec="" icon="" nodisplay="" hidden="" tryexec=""
+  local in_entry=false categories=""
+
+  while IFS='=' read -r key val; do
+    # Only parse the [Desktop Entry] section
+    if [[ "$key" == "[Desktop Entry]" ]]; then
+      in_entry=true; continue
+    elif [[ "$key" == "["* ]]; then
+      in_entry=false; continue
+    fi
+    $in_entry || continue
+
+    case "$key" in
+      Name)        [[ -z "$name" ]] && name="$val" ;;
+      Exec)        exec="$val" ;;
+      Icon)        icon="$val" ;;
+      NoDisplay)   nodisplay="$val" ;;
+      Hidden)      hidden="$val" ;;
+      TryExec)     tryexec="$val" ;;
+      Categories)  categories="$val" ;;
+    esac
+  done < "$file"
+
+  # Skip hidden/nodisplay entries
+  [[ "$nodisplay" == "true" || "$hidden" == "true" ]] && return
+  [[ -z "$name" || -z "$exec" ]] && return
+
+  # Strip field codes (%u %U %f %F etc.) from Exec
+  exec="${exec%% \%*}"
+
+  # Determine category: Settings category → settings, else app
+  local cat="app"
+  if [[ "$categories" == *"Settings"* ]]; then
+    cat="settings"
+  fi
+
+  printf '%s;%s;%s;%s\n' "$name" "$exec" "$cat" "$icon"
+}
+
+# ── Scan all .desktop directories ──
+scan_desktop_dirs() {
+  local dirs=(
+    /usr/share/applications
+    /usr/local/share/applications
+    "$HOME/.local/share/applications"
+  )
+
+  # Include Flatpak export directories
+  for fp_dir in /var/lib/flatpak/exports/share/applications \
+                "$HOME/.local/share/flatpak/exports/share/applications"; do
+    [[ -d "$fp_dir" ]] && dirs+=("$fp_dir")
+  done
+
+  for dir in "${dirs[@]}"; do
+    [[ -d "$dir" ]] || continue
+    while IFS= read -r -d '' file; do
+      parse_desktop "$file"
+    done < <(find "$dir" -maxdepth 1 -name '*.desktop' -print0 2>/dev/null)
+  done
+}
+
+# ── Scan AppImages ──
+scan_appimages() {
+  local dirs=("$HOME/Applications" "$HOME/AppImages")
+  for dir in "${dirs[@]}"; do
+    [[ -d "$dir" ]] || continue
+    while IFS= read -r -d '' appimage; do
+      local basename
+      basename=$(basename "$appimage")
+      # Derive human name: strip extension, version suffixes, replace separators
+      local name="${basename%.AppImage}"
+      name="${name%.appimage}"
+      name=$(echo "$name" | sed -E 's/[-_.]/ /g; s/  +/ /g; s/ [0-9]+.*//; s/^ +| +$//g')
+      [[ -z "$name" ]] && name="$basename"
+      printf '%s;%s;%s;%s\n' "$name" "$appimage" "app" "application-x-executable"
+    done < <(find "$dir" -maxdepth 1 \( -name '*.AppImage' -o -name '*.appimage' \) -executable -print0 2>/dev/null)
+  done
+}
+
+# ── Settings entries (curated) ──
+emit_settings() {
+  cat <<'EOF'
+Appearance;smplos-settings appearance;settings;preferences-desktop-theme
+Display;smplos-settings display;settings;preferences-desktop-display
+Network;smplos-settings network;settings;preferences-system-network
+Bluetooth;smplos-settings bluetooth;settings;bluetooth
+Audio;smplos-settings audio;settings;audio-volume-high
+Power Menu;smplos-settings power;settings;system-shutdown
+About smplOS;smplos-settings about;settings;help-about
+EOF
+}
+
+# ── Build cache ──
+{
+  scan_desktop_dirs
+  scan_appimages
+  emit_settings
+} | sort -t';' -k1,1 -f | uniq > "$CACHE_TMP"
+
+mv -f "$CACHE_TMP" "$CACHE_FILE"

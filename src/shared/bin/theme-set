@@ -95,10 +95,13 @@ if [[ -f "$CURRENT_THEME_PATH/foot.ini" ]]; then
   cp "$CURRENT_THEME_PATH/foot.ini" "$HOME/.config/foot/theme.ini"
 fi
 
-# Link rofi theme
+# Link rofi themes
+mkdir -p "$HOME/.config/rofi"
 if [[ -f "$CURRENT_THEME_PATH/rofi.rasi" ]]; then
-  mkdir -p "$HOME/.config/rofi"
   cp "$CURRENT_THEME_PATH/rofi.rasi" "$HOME/.config/rofi/smplos.rasi"
+fi
+if [[ -f "$CURRENT_THEME_PATH/smplos-launcher.rasi" ]]; then
+  cp "$CURRENT_THEME_PATH/smplos-launcher.rasi" "$HOME/.config/rofi/smplos-launcher.rasi"
 fi
 
 # st (suckless terminal) -- colors applied at runtime via OSC escape sequences

@@ -1,0 +1,25 @@
+#!/bin/bash
+# rofi script-mode source for smplOS settings entries
+# Used by: rofi -modi "...,settings:rofi-settings-src"
+#
+# Protocol (rofi script mode):
+#   ROFI_RETV=0  → initial call, output the entry list
+#   ROFI_RETV=1  → user selected $1, launch it and re-show list
+#   ROFI_INFO    → exec command attached to the selected row
+
+CACHE="$HOME/.cache/smplos/app_index"
+
+# Handle selection -- launch the command, then re-display list
+if [[ "${ROFI_RETV:-0}" -eq 1 && -n "${ROFI_INFO:-}" ]]; then
+    ${ROFI_INFO} &>/dev/null &
+fi
+
+# Output settings entries (always, so list persists after launch)
+[[ -f "$CACHE" ]] || exit 0
+grep ';settings;' "$CACHE" | while IFS=';' read -r name exec _cat icon; do
+    if [[ -n "$icon" ]]; then
+        printf '%s\0icon\x1f%s\x1finfo\x1f%s\n' "$name" "$icon" "$exec"
+    else
+        printf '%s\0info\x1f%s\n' "$name" "$exec"
+    fi
+done

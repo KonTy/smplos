@@ -1,0 +1,17 @@
+/* smplOS rofi configuration */
+configuration {
+    /* Terminal for apps with Terminal=true in .desktop */
+    terminal: "st-wl";
+
+    /* Icon theme */
+    icon-theme: "Adwaita";
+
+    /* Case-insensitive matching */
+    case-sensitive: false;
+
+    /* Show icons in drun mode */
+    drun-display-format: "{name}";
+
+    /* Disable click-to-exit so misclicks don't dismiss */
+    click-to-exit: true;
+}

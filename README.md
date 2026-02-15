@@ -91,6 +91,51 @@ release/               VM testing tools (dev-push, test-iso, QEMU scripts)
 | Hyprland   | Wayland       | st-wl    | Active |
 | DWM        | X11           | st       | Planned |
 
+## Start Menu Launcher
+
+smplOS includes a custom start menu launcher built on rofi, inspired by the [adi1090x](https://github.com/adi1090x/rofi) type-1/style-15 layout. It appears at the bottom-left of the screen (like a Plasma/Windows start menu) with a slide-left animation, blur, and per-theme transparency.
+
+**Open it:** Press <kbd>Super</kbd> (tap and release) or click the logo in the EWW bar.
+
+### Tabs
+
+The launcher uses rofi's native modi system with two tabs:
+
+| Tab | Hotkey | What it shows |
+|-----|--------|---------------|
+| **Apps** | <kbd>Alt</kbd>+<kbd>A</kbd> | All desktop applications (drun) |
+| **Settings** | <kbd>Alt</kbd>+<kbd>S</kbd> | System settings entries (Wi-Fi, Bluetooth, Display, Audio, Themes, etc.) |
+
+Hotkeys jump to the tab **and clear the search filter** — so you get a fresh list every time. The mode-switcher tabs at the bottom are also clickable.
+
+### How it works
+
+- **`launcher`** — wrapper script that runs rofi with native modi (`drun` + `settings:rofi-settings-src`). Handles <kbd>Alt</kbd>+<kbd>A</kbd>/<kbd>Alt</kbd>+<kbd>S</kbd> via `kb-custom` exit codes, restarting rofi on the target mode.
+- **`rofi-settings-src`** — rofi script-mode source that reads from the app cache, filtering for settings entries.
+- **`smplos-launcher.rasi.tpl`** — theme template with `rgba()` transparency using `popup_opacity` from `colors.toml`, matching the look of other popup panels.
+- **Hyprland layerrules** — `animation slide left`, `blur on`, `ignore_alpha 0.1` on namespace `rofi`.
+
+### App Cache
+
+The launcher reads from a pre-built app index at `~/.cache/smplos/app_index`. This is automatically rebuilt by a systemd path unit (`smplos-app-cache.path`) whenever `.desktop` files, Flatpak apps, or AppImages change. You can also rebuild manually:
+
+```bash
+rebuild-app-cache
+```
+
+## GTK Theming & Credential Storage
+
+smplOS configures the system so GTK dialogs (file pickers, VS Code popups, etc.) follow the dark/light theme automatically:
+
+- **GTK settings.ini** — written during install for X11 fallback
+- **dconf/GSettings** — written during install via `dbus-run-session` for Wayland (GTK on Wayland ignores `settings.ini`)
+- **`theme-set`** — updates both `gsettings color-scheme` and `gtk-theme` on every theme switch
+
+Credential storage (for VS Code, Brave, git, etc.) is fully configured:
+
+- **gnome-keyring** — installed, started via Hyprland autostart, PAM-integrated for auto-unlock at login
+- **VS Code argv.json** — pre-configured with `"password-store": "gnome-libsecret"` to eliminate the keyring detection dialog
+
 ## Building
 
 The build system is designed to work on **first run, on any Linux distro**. It runs inside a Docker container for reproducibility — your host system only needs Docker.
@@ -264,9 +309,40 @@ sudo bash /mnt/dev-apply.sh
 
 ### VM Testing
 
+Use QEMU for testing — it provides a `virtio-gpu` device that Hyprland works with out of the box:
+
 ```bash
 cd release && ./test-iso.sh
 ```
+
+This launches a QEMU VM with KVM acceleration, UEFI firmware, a 20 GB virtual disk, and a 9p shared folder for live hot-reloading. The script auto-detects OVMF, finds the newest ISO in `release/`, and opens the VM window.
+
+Once the VM boots, mount the shared folder to enable hot-reload:
+
+```bash
+# Inside the VM:
+sudo mount -t 9p -o trans=virtio hostshare /mnt
+```
+
+Then iterate without rebuilding the ISO:
+
+```bash
+# Host: push changes to the shared folder
+cd release && ./dev-push.sh
+
+# VM: apply them to the live system
+sudo bash /mnt/dev-apply.sh
+```
+
+The 9p mount is live — `dev-push.sh` writes to `release/vmshare/` and changes are immediately visible inside the VM. No remount needed.
+
+Use `--reset` to wipe the VM disk and start fresh:
+
+```bash
+./test-iso.sh --reset
+```
+
+> **VirtualBox is not supported.** Hyprland requires a working DRM/KMS device with OpenGL support. VirtualBox's virtual GPU (`VBoxVGA` / `VMSVGA`) does not provide this — Hyprland will crash immediately on startup, producing a "Couldn't wait for Hyprland. No child process" error from the login manager. This is a [known limitation](https://wiki.hyprland.org/Getting-Started/Installation/#running-in-a-vm) across all Hyprland-based distros, not a smplOS bug. Use QEMU with KVM (`test-iso.sh`) or VMware with 3D acceleration instead.
 
 ## Themes
 
@@ -301,7 +377,7 @@ Each theme is a directory under `src/shared/themes/<name>/` containing:
 | `foot.ini` | Generated | Foot terminal colors |
 | `hyprland.conf` | Generated | Hyprland border colors, rounding, blur, opacity |
 | `hyprlock.conf` | Generated | Lock screen colors |
-| `rofi.rasi` | Generated | Rofi launcher theme |
+| `smplos-launcher.rasi` | Generated | Rofi start menu theme (rgba transparency via `popup_opacity`) |
 | `neovim.lua` | Hand-authored | Lazy.nvim colorscheme spec |
 | `vscode.json` | Hand-authored | VS Code/Codium/Cursor theme name + extension ID |
 | `icons.theme` | Hand-authored | GTK icon theme name |
@@ -435,7 +511,7 @@ When you run `theme-set <name>`, it:
    - `foot.ini` &#x2192; `~/.config/foot/theme.ini`
    - `btop.theme` &#x2192; `~/.config/btop/themes/current.theme`
    - `fish.theme` &#x2192; `~/.config/fish/theme.fish`
-   - `rofi.rasi` &#x2192; `~/.config/rofi/smplos.rasi`
+   - `smplos-launcher.rasi` &#x2192; `~/.config/rofi/smplos-launcher.rasi`
    - `dunstrc.theme` &#x2192; appended to `~/.config/dunst/dunstrc.active`
    - `neovim.lua` &#x2192; `~/.config/nvim/lua/plugins/colorscheme.lua`
 4. Bakes accent/fg colors into SVG icon templates for the EWW bar

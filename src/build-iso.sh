@@ -168,20 +168,40 @@ check_prerequisites() {
         fi
     fi
 
-    # Docker daemon running?
+    # Docker daemon running? Self-heal if not.
     if ! docker info &>/dev/null 2>&1; then
-        log_warn "Docker daemon not running, starting..."
-        if command -v systemctl &>/dev/null; then
-            sudo systemctl start docker
-            sleep 2
-        fi
-        # Still not working? Try sudo
-        if ! docker info &>/dev/null 2>&1; then
-            if sudo docker info &>/dev/null 2>&1; then
-                log_warn "Docker requires sudo (run 'sudo usermod -aG docker \$USER' to fix)"
+        # Check if it's a permissions issue first (daemon running but user not in docker group)
+        if sudo -n docker info &>/dev/null 2>&1; then
+            log_warn "Docker requires sudo (run 'sudo usermod -aG docker \$USER' and re-login to fix)"
+            DOCKER_CMD="sudo docker"
+        else
+            # Daemon genuinely not running -- try to start it
+            log_warn "Docker daemon is not running"
+            if command -v systemctl &>/dev/null; then
+                log_info "Requesting sudo to start Docker service..."
+                sudo systemctl start docker
+                sleep 2
+            fi
+            # Verify it came up
+            if docker info &>/dev/null 2>&1; then
+                log_info "Docker started successfully"
+            elif sudo -n docker info &>/dev/null 2>&1; then
+                log_warn "Docker requires sudo (run 'sudo usermod -aG docker \$USER' and re-login to fix)"
                 DOCKER_CMD="sudo docker"
             else
-                die "Cannot start Docker. Try: sudo systemctl start docker"
+                # Last resort: restart the daemon (fixes stale network/bridge issues)
+                log_warn "Docker failed to respond, attempting restart..."
+                if command -v systemctl &>/dev/null; then
+                    sudo systemctl restart docker
+                    sleep 3
+                fi
+                if docker info &>/dev/null 2>&1; then
+                    log_info "Docker recovered after restart"
+                elif sudo docker info &>/dev/null 2>&1; then
+                    DOCKER_CMD="sudo docker"
+                else
+                    die "Cannot start Docker. Try manually: sudo systemctl restart docker"
+                fi
             fi
         fi
     fi
@@ -245,10 +265,11 @@ build_missing_aur_packages() {
     pkg_list_file=$(mktemp)
     printf '%s\n' "${need_build[@]}" > "$pkg_list_file"
 
-    $DOCKER_CMD run --rm \
-        --dns 1.1.1.1 --dns 8.8.8.8 \
-        -v "$prebuilt_dir:/output" \
-        -v "$pkg_list_file:/tmp/packages.txt:ro" \
+    local docker_run_args=(
+        run --rm
+        --dns 1.1.1.1 --dns 8.8.8.8
+        -v "$prebuilt_dir:/output"
+        -v "$pkg_list_file:/tmp/packages.txt:ro"
         archlinux:latest bash -c "
             set -e
             retry() {
@@ -290,6 +311,23 @@ build_missing_aur_packages() {
             done < /tmp/packages.txt
             echo '==> All AUR packages built!'
         "
+    )
+
+    # Run with auto-recovery for Docker network failures
+    if ! $DOCKER_CMD "${docker_run_args[@]}" 2>/tmp/docker-aur-err.log; then
+        if grep -qi 'network\|veth\|bridge\|endpoint' /tmp/docker-aur-err.log 2>/dev/null; then
+            log_warn "Docker networking failed -- restarting Docker to recover..."
+            log_info "Requesting sudo to restart Docker service..."
+            sudo systemctl restart docker
+            sleep 3
+            log_info "Retrying AUR build..."
+            $DOCKER_CMD "${docker_run_args[@]}" || die "AUR build failed after Docker restart"
+        else
+            cat /tmp/docker-aur-err.log >&2
+            die "AUR package build failed"
+        fi
+    fi
+    rm -f /tmp/docker-aur-err.log
 
     rm -f "$pkg_list_file"
     log_info "AUR packages saved to: $prebuilt_dir"
@@ -359,7 +397,21 @@ run_build() {
     $DOCKER_CMD pull archlinux:latest
 
     log_info "Starting build container..."
-    $DOCKER_CMD run "${docker_args[@]}" archlinux:latest /build/src/builder/build.sh
+    if ! $DOCKER_CMD run "${docker_args[@]}" archlinux:latest /build/src/builder/build.sh 2>/tmp/docker-build-err.log; then
+        if grep -qi 'network\|veth\|bridge\|endpoint' /tmp/docker-build-err.log 2>/dev/null; then
+            log_warn "Docker networking failed -- restarting Docker to recover..."
+            log_info "Requesting sudo to restart Docker service..."
+            sudo systemctl restart docker
+            sleep 3
+            log_info "Retrying ISO build..."
+            $DOCKER_CMD run "${docker_args[@]}" archlinux:latest /build/src/builder/build.sh \
+                || { cat /tmp/docker-build-err.log >&2; die "ISO build failed after Docker restart"; }
+        else
+            cat /tmp/docker-build-err.log >&2
+            die "ISO build failed"
+        fi
+    fi
+    rm -f /tmp/docker-build-err.log
 
     echo ""
     log_info "Build complete!"

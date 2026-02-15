@@ -124,6 +124,29 @@ if [[ -d "$SHARE/configs" && "$(ls -A "$SHARE/configs" 2>/dev/null)" ]]; then
     log "  done"
 fi
 
+# ── Systemd user units ──────────────────────────────────────
+if [[ -d "$USER_HOME/.config/systemd/user" ]]; then
+    log "Enabling systemd user units..."
+    USER_WANTS="$USER_HOME/.config/systemd/user/default.target.wants"
+    mkdir -p "$USER_WANTS"
+    for unit in smplos-app-cache.service smplos-app-cache.path; do
+        if [[ -f "$USER_HOME/.config/systemd/user/$unit" ]]; then
+            ln -sf "../$unit" "$USER_WANTS/$unit"
+            log "  enabled $unit"
+        fi
+    done
+    own "$USER_HOME/.config/systemd"
+    # Reload systemd user daemon so it picks up new units
+    run_as_user "systemctl --user daemon-reload" 2>/dev/null || true
+    run_as_user "systemctl --user restart smplos-app-cache.path" 2>/dev/null || true
+fi
+
+# ── App cache (populate for launcher) ───────────────────────
+if command -v rebuild-app-cache &>/dev/null; then
+    log "Building app cache..."
+    run_as_user "rebuild-app-cache" 2>/dev/null && log "  done" || warn "  failed"
+fi
+
 # ── notif-center ─────────────────────────────────────────────
 if [[ -f "$SHARE/notif-center/notif-center" ]]; then
     log "Applying notif-center binary..."
@@ -209,6 +232,7 @@ fi
 
 if $restart_hypr; then
     log "Reloading Hyprland..."
+    run_as_user "pkill rofi" 2>/dev/null || true
     run_as_user "hyprctl reload" 2>/dev/null || warn "  hyprctl reload failed"
     log "  Hyprland reloaded"
 fi
