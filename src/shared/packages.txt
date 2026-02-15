@@ -35,7 +35,6 @@ pamixer
 # ── Theming / GTK ────────────────────────────────────────────
 gtk3
 gtk4
-breeze           # cursor themes (breeze_cursors + Breeze_Light)
 qt5ct
 kvantum
 kvantum-qt5

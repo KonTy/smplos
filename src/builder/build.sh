@@ -76,7 +76,10 @@ read_package_list() {
     local -n arr="$2"
     [[ -f "$file" ]] || return 0
     while IFS= read -r line; do
-        [[ "$line" =~ ^#.*$ || -z "$line" ]] && continue
+        line="${line%%#*}"   # strip inline comments
+        line="${line%% *}"   # take first word only (package name)
+        line="${line## }"    # trim leading spaces
+        [[ -z "$line" ]] && continue
         arr+=("$line")
     done < "$file"
 }
@@ -639,6 +642,7 @@ setup_airootfs() {
         mkdir -p "$airootfs/root/smplos/applications"
         cp "$SRC_DIR/shared/applications/"*.desktop "$airootfs/root/smplos/applications/" 2>/dev/null || true
         if [[ -d "$SRC_DIR/shared/applications/icons/hicolor" ]]; then
+            mkdir -p "$airootfs/usr/share/icons"
             cp -r "$SRC_DIR/shared/applications/icons/hicolor" "$airootfs/usr/share/icons/"
             mkdir -p "$airootfs/root/smplos/icons/hicolor"
             cp -r "$SRC_DIR/shared/applications/icons/hicolor/"* "$airootfs/root/smplos/icons/hicolor/"
@@ -890,6 +894,7 @@ setup_airootfs() {
             # Icons → system icon theme (hicolor)
             if [[ -d "$ed_dir/icons/hicolor" ]]; then
                 log_info "Deploying edition ($_ed) icons"
+                mkdir -p "$airootfs/usr/share/icons"
                 cp -r "$ed_dir/icons/hicolor" "$airootfs/usr/share/icons/"
                 # Also to smplos data for installer to deploy
                 mkdir -p "$airootfs/root/smplos/icons/hicolor"

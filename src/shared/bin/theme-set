@@ -178,13 +178,13 @@ if [[ -f "$CURRENT_THEME_PATH/light.mode" ]]; then
   _color_scheme="prefer-light"
   _dark_pref=0
   _gtk_env="Adwaita"
-  _cursor_theme="Breeze_Light"
+  _cursor_theme="Adwaita"
 else
   _gtk_theme="Adwaita-dark"
   _color_scheme="prefer-dark"
   _dark_pref=1
   _gtk_env="Adwaita:dark"
-  _cursor_theme="breeze_cursors"
+  _cursor_theme="Adwaita"
 fi
 
 # dconf/GSettings (primary on Wayland — GTK3/4 read from here)

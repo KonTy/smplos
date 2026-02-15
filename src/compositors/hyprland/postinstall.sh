@@ -36,20 +36,20 @@ cat > /home/smplos/.config/gtk-3.0/settings.ini << 'GTKEOF'
 gtk-theme-name=Adwaita
 gtk-icon-theme-name=Adwaita
 gtk-font-name=JetBrains Mono 11
-gtk-cursor-theme-name=breeze_cursors
+gtk-cursor-theme-name=Adwaita
 gtk-application-prefer-dark-theme=1
 gtk-overlay-scrolling=0
 GTKEOF
 chown smplos:smplos /home/smplos/.config/gtk-3.0/settings.ini
 
-# Configure GTK4 theme (separate settings.ini — GTK4 ignores gtk-3.0’s)
+# Configure GTK4 theme (separate settings.ini — GTK4 ignores gtk-3.0's)
 sudo -u smplos mkdir -p /home/smplos/.config/gtk-4.0
 cat > /home/smplos/.config/gtk-4.0/settings.ini << 'GTKEOF'
 [Settings]
 gtk-theme-name=Adwaita
 gtk-icon-theme-name=Adwaita
 gtk-font-name=JetBrains Mono 11
-gtk-cursor-theme-name=breeze_cursors
+gtk-cursor-theme-name=Adwaita
 gtk-application-prefer-dark-theme=1
 gtk-overlay-scrolling=0
 GTKEOF
@@ -65,7 +65,7 @@ cat > "$_dconf_dir/user.d/00-smplos" << 'DCONF'
 gtk-theme='Adwaita-dark'
 color-scheme='prefer-dark'
 icon-theme='Adwaita'
-cursor-theme='breeze_cursors'
+cursor-theme='Adwaita'
 font-name='JetBrains Mono 11'
 DCONF
 # Compile keyfile -> binary dconf database
