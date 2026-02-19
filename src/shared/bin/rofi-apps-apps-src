@@ -1,0 +1,2 @@
+#!/bin/bash
+ROFI_APP_GROUP=apps exec rofi-apps-src

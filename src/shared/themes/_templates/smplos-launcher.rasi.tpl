@@ -4,11 +4,15 @@
 
 /*****----- Configuration -----*****/
 configuration {
-    modi:                        "drun,settings:rofi-settings-src";
+    modi:                        "multimedia:rofi-apps-multimedia-src,development:rofi-apps-development-src,graphics:rofi-apps-graphics-src,internet:rofi-apps-internet-src,office:rofi-apps-office-src,apps:rofi-apps-apps-src,settings:rofi-settings-src";
     show-icons:                  true;
-    display-drun:                " <u>A</u>pps";
+    display-multimedia:          "Multimedia";
+    display-development:         "Development";
+    display-graphics:            "Graphics";
+    display-internet:            "Internet";
+    display-office:              "Office";
+    display-apps:                "Apps";
     display-settings:            " <u>S</u>ettings";
-    drun-display-format:         "{name} [<span weight='light' size='small'><i>({generic})</i></span>]";
 }
 
 /*****----- Global Properties -----*****/

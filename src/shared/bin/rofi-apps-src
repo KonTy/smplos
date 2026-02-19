@@ -1,0 +1,46 @@
+#!/bin/bash
+# rofi script-mode source for app categories with KDE-like search behavior
+# Usage wrappers set: ROFI_APP_GROUP={multimedia,development,graphics,internet,office,apps}
+#
+# Behavior:
+#  - query empty: show only selected category
+#  - query non-empty: search globally across all app categories
+
+set -euo pipefail
+
+CACHE="$HOME/.cache/smplos/app_index"
+GROUP="${ROFI_APP_GROUP:-apps}"
+QUERY="${1:-}"
+QUERY_LC="${QUERY,,}"
+GLOBAL_SEARCH=false
+[[ -n "$QUERY_LC" ]] && GLOBAL_SEARCH=true
+
+# Selection callback
+if [[ "${ROFI_RETV:-0}" -eq 1 && -n "${ROFI_INFO:-}" ]]; then
+  ${ROFI_INFO} &>/dev/null &
+  exit 0
+fi
+
+[[ -f "$CACHE" ]] || exit 0
+
+while IFS=';' read -r name exec cat icon; do
+  [[ "$cat" == "settings" ]] && continue
+
+  if ! $GLOBAL_SEARCH; then
+    [[ "$cat" == "$GROUP" ]] || continue
+  fi
+
+  if $GLOBAL_SEARCH; then
+    haystack="${name,,} ${exec,,} ${cat,,}"
+    [[ "$haystack" == *"$QUERY_LC"* ]] || continue
+    display="[$cat] $name"
+  else
+    display="$name"
+  fi
+
+  if [[ -n "$icon" ]]; then
+    printf '%s\0icon\x1f%s\x1finfo\x1f%s\n' "$display" "$icon" "$exec"
+  else
+    printf '%s\0info\x1f%s\n' "$display" "$exec"
+  fi
+done < "$CACHE"
