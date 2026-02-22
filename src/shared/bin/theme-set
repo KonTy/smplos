@@ -14,15 +14,27 @@ NEXT_THEME_PATH="$HOME/.config/smplos/current/next-theme"
 USER_THEMES_PATH="$HOME/.config/smplos/themes"
 STOCK_THEMES_PATH="$SMPLOS_PATH/themes"
 
+resolve_theme_path() {
+  local name="$1"
+  if [[ -d "$USER_THEMES_PATH/$name" ]]; then
+    echo "$USER_THEMES_PATH/$name"
+  elif [[ -d "$STOCK_THEMES_PATH/$name" ]]; then
+    echo "$STOCK_THEMES_PATH/$name"
+  else
+    return 1
+  fi
+}
+
+toml_get() {
+  local file="$1" key="$2"
+  grep -E "^${key}[[:space:]]*=" "$file" 2>/dev/null | head -1 | sed 's/.*"\([^"]*\)".*/\1/'
+}
+
 # Normalize theme name: strip markup, lowercase, spaces to hyphens
 THEME_NAME=$(echo "$1" | sed -E 's/<[^>]+>//g' | tr '[:upper:]' '[:lower:]' | tr ' ' '-')
 
 # Resolve theme path (user themes take precedence)
-if [[ -d "$USER_THEMES_PATH/$THEME_NAME" ]]; then
-  THEME_PATH="$USER_THEMES_PATH/$THEME_NAME"
-elif [[ -d "$STOCK_THEMES_PATH/$THEME_NAME" ]]; then
-  THEME_PATH="$STOCK_THEMES_PATH/$THEME_NAME"
-else
+if ! THEME_PATH="$(resolve_theme_path "$THEME_NAME")"; then
   echo "Theme '$THEME_NAME' does not exist"
   exit 1
 fi
@@ -234,24 +246,38 @@ systemctl --user import-environment GTK_THEME XCURSOR_THEME 2>/dev/null || true
 # Restart portal-gtk so it picks up the new GTK_THEME
 systemctl --user restart xdg-desktop-portal-gtk 2>/dev/null || true
 
-# Neovim — deploy lazy.nvim colorscheme spec
-if [[ -f "$CURRENT_THEME_PATH/neovim.lua" ]]; then
+# App-theme selectors live in colors.toml so each theme can point to any preset.
+# Defaults keep legacy behavior: use this theme's own app presets.
+NVM_PRESET="$(toml_get "$CURRENT_THEME_PATH/colors.toml" app_theme_nvim)"
+VSCODE_PRESET="$(toml_get "$CURRENT_THEME_PATH/colors.toml" app_theme_vscode)"
+LOGSEQ_PRESET="$(toml_get "$CURRENT_THEME_PATH/colors.toml" app_theme_logseq)"
+NVM_PRESET="${NVM_PRESET:-$THEME_NAME}"
+VSCODE_PRESET="${VSCODE_PRESET:-$THEME_NAME}"
+LOGSEQ_PRESET="${LOGSEQ_PRESET:-$THEME_NAME}"
+
+# Neovim — deploy lazy.nvim colorscheme spec from selected preset
+NVM_THEME_PATH="$(resolve_theme_path "$NVM_PRESET" 2>/dev/null || true)"
+if [[ -n "${NVM_THEME_PATH:-}" && -f "$NVM_THEME_PATH/neovim.lua" ]]; then
   mkdir -p "$HOME/.config/nvim/lua/plugins"
-  cp "$CURRENT_THEME_PATH/neovim.lua" "$HOME/.config/nvim/lua/plugins/colorscheme.lua"
+  cp "$NVM_THEME_PATH/neovim.lua" "$HOME/.config/nvim/lua/plugins/colorscheme.lua"
 fi
 
-# VS Code / Codium / Cursor — set workbench.colorTheme
-if [[ -f "$CURRENT_THEME_PATH/vscode.json" ]]; then
+# VS Code / Codium / Cursor — set workbench.colorTheme from selected preset
+VSCODE_THEME_PATH="$(resolve_theme_path "$VSCODE_PRESET" 2>/dev/null || true)"
+if [[ -n "${VSCODE_THEME_PATH:-}" && -f "$VSCODE_THEME_PATH/vscode.json" ]]; then
   _set_vscode_theme() {
     local cmd="$1" settings="$2"
     command -v "$cmd" &>/dev/null || return 0
 
-    local theme_name extension
-    theme_name=$(jq -r '.name' "$CURRENT_THEME_PATH/vscode.json")
-    extension=$(jq -r '.extension // empty' "$CURRENT_THEME_PATH/vscode.json")
+    local theme_name extension vsix
+    theme_name=$(jq -r '.name' "$VSCODE_THEME_PATH/vscode.json")
+    extension=$(jq -r '.extension // empty' "$VSCODE_THEME_PATH/vscode.json")
+    vsix=$(jq -r '.vsix // empty' "$VSCODE_THEME_PATH/vscode.json")
 
-    # Install extension if needed
-    if [[ -n "$extension" ]] && ! "$cmd" --list-extensions 2>/dev/null | grep -Fxq "$extension"; then
+    # Install extension: from bundled .vsix or marketplace
+    if [[ -n "$vsix" && -f "$VSCODE_THEME_PATH/$vsix" ]]; then
+      "$cmd" --install-extension "$VSCODE_THEME_PATH/$vsix" --force >/dev/null 2>&1 || true
+    elif [[ -n "$extension" ]] && ! "$cmd" --list-extensions 2>/dev/null | grep -Fxq "$extension"; then
       "$cmd" --install-extension "$extension" >/dev/null 2>&1 || true
     fi
 
@@ -283,7 +309,7 @@ if [[ -d "$HOME/.logseq/plugins" ]]; then
   # Map smplOS theme names to Logseq plugin themes
   # URL must be assets:// + absolute path to the CSS file inside the plugin dir
   _lq_name="" _lq_css="" _lq_pid=""
-  case "$THEME_NAME" in
+  case "$LOGSEQ_PRESET" in
     catppuccin)       _lq_name="Catppuccin Mocha"          _lq_css="$_lp/logseq-catppuccin/ctp-mocha.css"              _lq_pid=logseq-catppuccin ;;
     catppuccin-latte) _lq_name="Catppuccin Latte"          _lq_css="$_lp/logseq-catppuccin/ctp-latte.css"              _lq_pid=logseq-catppuccin ;;
     tokyo-night)      _lq_name="Tokyo Night"               _lq_css="$_lp/tokyo-night/tokyo.css"                        _lq_pid=tokyo-night ;;
@@ -291,6 +317,7 @@ if [[ -d "$HOME/.logseq/plugins" ]]; then
     rose-pine)        _lq_name="Rosé Pine Dawn"            _lq_css="$_lp/logseq-rose-pine-theme/src/rose-pine-dawn.css" _lq_pid=logseq-rose-pine-theme ;;
     flexoki-light)    _lq_name="Flexoki Light"             _lq_css="$_lp/logseq-flexoki-theme/flexoki-theme.css"        _lq_pid=logseq-flexoki-theme ;;
     hackerman)        _lq_name="Matrix AMOLED Dark"        _lq_css="$_lp/logseq-matrixamoled-theme/matrix.css"          _lq_pid=logseq-matrixamoled-theme ;;
+    matrix)           _lq_name="Matrix AMOLED Dark"        _lq_css="$_lp/logseq-matrixamoled-theme/matrix.css"          _lq_pid=logseq-matrixamoled-theme ;;
     matte-black)      _lq_name="D42ker Logseq"             _lq_css="$_lp/logseq-d42ker-theme/custom.css"               _lq_pid=logseq-d42ker-theme ;;
     gruvbox)          _lq_name="Everforest Dark Soft"      _lq_css="$_lp/logseq-everforest-theme/everforest-dark-soft.css" _lq_pid=logseq-everforest-theme ;;
     kanagawa)         _lq_name="Rosé Pine"                 _lq_css="$_lp/logseq-rose-pine-theme/src/rose-pine.css"      _lq_pid=logseq-rose-pine-theme ;;

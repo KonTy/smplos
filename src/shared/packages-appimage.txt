@@ -1,7 +1,10 @@
-# smplOS Hyprland - AppImages
+# smplOS - AppImages
 # Format: name|url (URL to download the AppImage)
-# These are bundled directly into the ISO
+# These are bundled directly into the ISO at /opt/appimages/
+
+# Knowledge management
+Logseq|https://github.com/logseq/logseq/releases/download/0.10.15/Logseq-linux-x64-0.10.15.AppImage
 
 # Example entries (uncomment to include):
-# neovim|https://github.com/neovim/neovim/releases/download/v0.9.5/nvim.appimage
-# obsidian|https://github.com/obsidianmd/obsidian-releases/releases/download/v1.5.3/Obsidian-1.5.3.AppImage
+# Neovim|https://github.com/neovim/neovim/releases/download/v0.9.5/nvim.appimage
+# Obsidian|https://github.com/obsidianmd/obsidian-releases/releases/download/v1.5.3/Obsidian-1.5.3.AppImage

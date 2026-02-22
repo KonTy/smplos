@@ -174,6 +174,19 @@ EOF
     cp -r /root/smplos/bin/* /mnt/usr/local/bin/ 2>/dev/null || true
     chmod +x /mnt/usr/local/bin/* 2>/dev/null || true
   fi
+
+  # Copy AppImages to installed system
+  if ls /opt/appimages/*.AppImage &>/dev/null; then
+    mkdir -p /mnt/opt/appimages
+    cp /opt/appimages/*.AppImage /mnt/opt/appimages/
+    chmod +x /mnt/opt/appimages/*.AppImage
+  fi
+
+  # Copy Flatpak install list to installed system
+  if [[ -f /opt/flatpaks/install-online.txt ]]; then
+    mkdir -p /mnt/opt/flatpaks
+    cp /opt/flatpaks/install-online.txt /mnt/opt/flatpaks/
+  fi
 }
 
 chroot_bash() {

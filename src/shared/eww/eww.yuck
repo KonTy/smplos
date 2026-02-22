@@ -65,13 +65,13 @@
 ;; Logo/Menu button (themed SVG -- colors baked by theme-set)
 (defwidget logo []
   (button :class "logo"
-          :onclick "pkill -x rofi && pkill -xf 'bash.*/launcher' || launcher &"
+          :onclick "toggle-start-menu"
     (image :path "icons/status/start.svg"
            :image-width 18 :image-height 18)))
 
 ;; Workspaces widget (7 dot indicators, active = accent-filled circle)
 (defwidget workspaces-widget []
-  (box :class "workspaces" :orientation "h" :space-evenly false :spacing 2
+  (box :class "workspaces" :orientation "h" :space-evenly false :spacing 0
     (workspace-dot :ws 1)
     (workspace-dot :ws 2)
     (workspace-dot :ws 3)
@@ -85,7 +85,7 @@
                   arraylength(jq(workspaces, "map(select(. == ${ws}))")) > 0 ? "ws-dot occupied" :
                   "ws-dot"}
           :onclick "hyprctl dispatch workspace ${ws} 2>/dev/null || true"
-    (label :text "●")))
+    (label :text {active-workspace == ws ? "●" : "${ws}"})))
 
 ;; Window title
 (defwidget window []

@@ -10,6 +10,8 @@
 
 <p align="center">
   <a href="DEVELOPMENT.md">Development Guide</a>
+   &nbsp;&bull;&nbsp;
+   <a href="CREATING_MODIFYING_A_THEME.md">Theme Authoring Guide</a>
 </p>
 
 ---
@@ -32,7 +34,7 @@ It started as an attempt to build a lighter version of Omarchy - same keybinding
 
 #### Start Menu
 
-The launcher is built with Rofi and styled to match the active theme. Tap <kbd>Super</kbd> to open it - it searches installed apps, does basic math, and closes on selection. No dock, no taskbar, no wasted pixels. Just a fast, keyboard-driven menu that stays out of your way until you need it.
+A native start menu built with Rust and Slint, themed to match the active system colors. Tap <kbd>Super</kbd> to open it - browse apps by category, search across all installed apps (including Flatpak, AppImage, and web apps), or jump to Settings. Full keyboard navigation with Tab, Shift+Tab, arrow keys, and Enter. No dock, no taskbar, no wasted pixels.
 
 <a href="images/1-start-menu.png"><img src="images/1-start-menu.png" width="720" /></a>
 
@@ -103,8 +105,8 @@ Every tool in smplOS was chosen to work across compositors (Wayland and X11) so 
 
 | Component | Choice | Why |
 |-----------|--------|-----|
-| **Bar & widgets** | EWW | GTK3-based, runs natively on both X11 and Wayland. One codebase for bar, launcher, theme picker, and keybind help. Replaces waybar, polybar, and rofi. |
-| **Launcher** | Rofi | Wayland fork (lbonn/rofi) and X11 original share the same config format and theming. One theme file, two backends. |
+| **Bar & widgets** | EWW | GTK3-based, runs natively on both X11 and Wayland. One codebase for bar, widgets, theme picker, and keybind help. Replaces waybar and polybar. |
+| **Start Menu** | Rust + Slint | Native GPU-rendered app launcher with categories, search, source badges (AUR/Flatpak/AppImage/Web App), and Settings tab. Theme-aware, keyboard-driven, under 5 MB. |
 | **Terminal** | st / st-wl | Suckless st has an X11 build and a Wayland port (marchaesen/st-wl). Same config.h, same patches, same look. Starts in ~5ms and uses ~4 MB of RAM - critical for staying under the 850 MB cold-boot target. |
 | **Notifications** | Dunst | Works on both X11 and Wayland with the same config. Lightweight, themeable, no dependencies on a specific compositor. |
 
@@ -140,9 +142,9 @@ On first boot, a notification shows the essential keybindings. Here they are for
 
 | Shortcut | Action |
 |----------|--------|
-| <kbd>Super</kbd> (tap) | Start menu launcher |
+| <kbd>Super</kbd> (tap) | Start menu |
 | <kbd>Super</kbd>+<kbd>Enter</kbd> | Terminal |
-| <kbd>Super</kbd>+<kbd>Space</kbd> | App launcher |
+| <kbd>Super</kbd>+<kbd>A</kbd> | App Center |
 | <kbd>Super</kbd>+<kbd>W</kbd> | Close window |
 | <kbd>Super</kbd>+<kbd>F</kbd> | Fullscreen |
 | <kbd>Super</kbd>+<kbd>T</kbd> | Toggle floating |
@@ -179,7 +181,9 @@ src/
     configs/smplos/    Cross-compositor configs (bindings.conf, branding)
     themes/            14 themes with templates for all apps
     installer/         OS installer
-    settings-panel/    System settings
+    start-menu/        Start menu launcher (Rust + Slint)
+    app-center/        App center for installing/managing apps (Rust + Slint)
+    webapp-center/     Web app manager (Rust + Slint)
   compositors/
     hyprland/          Hyprland-specific config (hypr/, st-wl terminal)
     dwm/               DWM-specific config (st terminal, future)
@@ -206,33 +210,48 @@ release/               VM testing tools (dev-push, test-iso, QEMU scripts)
 | Hyprland   | Wayland       | st-wl    | Active |
 | DWM        | X11           | st       | Planned |
 
-## Start Menu Launcher
+## Start Menu
 
-smplOS includes a custom start menu launcher built on rofi, inspired by the [adi1090x](https://github.com/adi1090x/rofi) type-1/style-15 layout. It appears at the bottom-left of the screen (like a Plasma/Windows start menu) with a slide-left animation, blur, and per-theme transparency.
+A native start menu built with Rust and [Slint](https://slint.dev). It appears at the bottom-left of the screen (like a Plasma/Windows start menu) with a slide-left animation, blur, and theme-aware colors.
 
 **Open it:** Press <kbd>Super</kbd> (tap and release) or click the logo in the EWW bar.
 
-### Tabs
+### Categories
 
-The launcher uses rofi's native modi system with two tabs:
+The left sidebar shows category tabs with Nerd Font icons:
 
-| Tab | Hotkey | What it shows |
-|-----|--------|---------------|
-| **Apps** | <kbd>Alt</kbd>+<kbd>A</kbd> | All desktop applications (drun) |
-| **Settings** | <kbd>Alt</kbd>+<kbd>S</kbd> | System settings entries (Wi-Fi, Bluetooth, Display, Audio, Themes, etc.) |
+| Category | Icon | Contents |
+|----------|------|----------|
+| All Apps | 󰀻 | Everything |
+| Internet | 󰇧 | Browsers, email, chat, web apps |
+| Development | 󰅨 | IDEs, editors, git tools |
+| Multimedia | 󰝚 | Media players, recorders |
+| Graphics | 󰃣 | Image editors, viewers |
+| Office | 󰈙 | Documents, spreadsheets |
+| Settings | 󰒓 | System settings, App Center, Web Apps |
 
-Hotkeys jump to the tab **and clear the search filter** so you get a fresh list every time. The mode-switcher tabs at the bottom are also clickable.
+Click a category or use <kbd>Tab</kbd> / <kbd>Shift+Tab</kbd> to move between the sidebar, search, and app list. Arrow keys navigate within each area.
+
+### Source Badges
+
+Each app shows a source badge indicating where it came from:
+
+| Badge | Meaning |
+|-------|---------|
+| AUR | Installed from official repos or AUR |
+| Flatpak | Installed via Flatpak |
+| AppImage | Portable AppImage |
+| Web App | Sandboxed web app created via Web App Center |
 
 ### How it works
 
-- **`launcher`** - wrapper script that runs rofi with native modi (`drun` + `settings:rofi-settings-src`). Handles <kbd>Alt</kbd>+<kbd>A</kbd>/<kbd>Alt</kbd>+<kbd>S</kbd> via `kb-custom` exit codes, restarting rofi on the target mode.
-- **`rofi-settings-src`** - rofi script-mode source that reads from the app cache, filtering for settings entries.
-- **`smplos-launcher.rasi.tpl`** - theme template with `rgba()` transparency using `popup_opacity` from `colors.toml`, matching the look of other popup panels.
-- **Hyprland layerrules** - `animation slide left`, `blur on`, `ignore_alpha 0.1` on namespace `rofi`.
+- **`src/shared/start-menu/`** - Rust + Slint application. Reads the app index, resolves icons (SVG/PNG from hicolor, Flatpak exports, and user icon dirs), renders a GPU-accelerated UI.
+- **`toggle-start-menu`** - wrapper script that toggles the menu open/closed. Manages focus capture (`stay_focused`, `pin`, temporary `follow_mouse=3`).
+- **Hyprland window rules** - `float`, `move 2 (monitor_h-window_h-37)`, `animation slide left`, `opacity 1.0 override`.
 
 ### App Cache
 
-The launcher reads from a pre-built app index at `~/.cache/smplos/app_index`. This is automatically rebuilt by a systemd path unit (`smplos-app-cache.path`) whenever `.desktop` files, Flatpak apps, or AppImages change. You can also rebuild manually:
+The start menu reads from a pre-built app index at `~/.cache/smplos/app_index`. This is automatically rebuilt by a systemd path unit (`smplos-app-cache.path`) whenever `.desktop` files, Flatpak apps, or AppImages change. You can also rebuild manually:
 
 ```bash
 rebuild-app-cache
@@ -474,6 +493,8 @@ Catppuccin Mocha, Catppuccin Latte, Ethereal, Everforest, Flexoki Light, Gruvbox
 
 One command - `theme-set <name>` - applies colors across the entire system: terminal, bar, notifications, compositor borders, lock screen, launcher, system monitor, editor, fish shell, Logseq, and browser chrome.
 
+For a full step-by-step authoring workflow, see [CREATING_MODIFYING_A_THEME.md](CREATING_MODIFYING_A_THEME.md).
+
 ### How It Works
 
 The theme system is a **build-time template pipeline** plus a **runtime switcher**:
@@ -500,7 +521,6 @@ Each theme is a directory under `src/shared/themes/<name>/` containing:
 | `hyprland.conf` | Generated | Hyprland border colors, rounding, blur, opacity |
 | `hyprlock.conf` | Generated | Lock screen colors |
 | `logseq-custom.css` | Generated | Logseq editor colors (backgrounds, text, links, highlights) |
-| `smplos-launcher.rasi` | Generated | Rofi start menu theme (rgba transparency via `popup_opacity`) |
 | `neovim.lua` | Hand-authored | Lazy.nvim colorscheme spec |
 | `vscode.json` | Hand-authored | VS Code/Codium/Cursor theme name + extension ID |
 | `icons.theme` | Hand-authored | GTK icon theme name |
@@ -534,13 +554,26 @@ Every theme defines all its values in a single `colors.toml` file. Here's the fu
 | `rounding` | `"10"` | Window corner radius in pixels |
 | `blur_size` | `"6"` | Background blur kernel size |
 | `blur_passes` | `"3"` | Number of blur passes (higher = smoother, more GPU) |
-| `opacity_active` | `"0.92"` | Opacity of focused windows (0.0 - 1.0) |
+| `opacity_active` | `"0.92"` | Opacity of focused windows (all regular apps) |
 | `opacity_inactive` | `"0.85"` | Opacity of unfocused windows |
-| `term_opacity_active` | `"1.0"` | Opacity of focused terminal windows |
-| `term_opacity_inactive` | `"1.0"` | Opacity of unfocused terminal windows |
-| `popup_opacity` | `"0.60"` | Opacity of EWW popups (calendar, etc.) |
+| `term_opacity_active` | `"0.85"` | st-wl **background-only** alpha. Text is always 100% opaque — only the background pixels carry this alpha in the ARGB surface. |
+| `browser_opacity` | `"1.0"` | Opacity of browsers (Brave, Firefox, Chrome, etc.) |
+| `messenger_opacity` | `"0.85"` | Opacity of messengers (Signal, Telegram, Slack, Discord, Teams, WhatsApp) |
+| `popup_opacity` | `"0.85"` | Opacity of smplOS Rust popup apps (start-menu, notif-center, kb-center, disp-center) |
 
-Terminal opacity is separated from general window opacity so themes can give terminals a frosted-glass look while keeping other apps more opaque (or vice versa).
+Each opacity class is owned exactly once — no value is applied twice. See [Opacity Architecture](#opacity-architecture) for details.
+
+#### App Theme Selectors (single-file control)
+
+Each `colors.toml` can also choose which app-specific preset to use:
+
+| Variable | Description | Example |
+|----------|-------------|---------|
+| `app_theme_nvim` | Which theme's `neovim.lua` preset to apply | `"tokyo-night"` |
+| `app_theme_vscode` | Which theme's `vscode.json` preset to apply | `"tokyo-night"` |
+| `app_theme_logseq` | Which Logseq mapping preset to apply | `"tokyo-night"` |
+
+By default, each built-in theme points these to itself. You can mix and match (e.g. keep `colors.toml` from one theme but reuse VS Code preset from another).
 
 #### Example: Catppuccin Mocha
 
@@ -574,9 +607,9 @@ blur_size = "14"
 blur_passes = "3"
 opacity_active = "0.60"
 opacity_inactive = "0.50"
-term_opacity_active = "1.0"
-term_opacity_inactive = "1.0"
-popup_opacity = "0.40"
+browser_opacity = "1.0"
+messenger_opacity = "0.85"
+popup_opacity = "0.85"
 ```
 
 ### Template System
@@ -637,7 +670,6 @@ When you run `theme-set <name>`, it:
    - `fish.theme` -> `~/.config/fish/theme.fish`
    - `tide.theme` -> applied via `fish -c "source ...; tide reload"`
    - `logseq-custom.css` -> `~/.logseq/config/custom.css` + plugin theme via `preferences.json`
-   - `smplos-launcher.rasi` -> `~/.config/rofi/smplos-launcher.rasi`
    - `dunstrc.theme` -> appended to `~/.config/dunst/dunstrc.active`
    - `neovim.lua` -> `~/.config/nvim/lua/plugins/colorscheme.lua`
 4. Bakes accent/fg colors into SVG icon templates for the EWW bar
@@ -657,23 +689,49 @@ When you run `theme-set <name>`, it:
 
 ### Opacity Architecture
 
-Window opacity is controlled at two levels:
+Every window belongs to exactly one opacity class. The value for each class lives in `colors.toml` and is never applied in more than one place — no compounding.
 
-1. **Application level** - st-wl has a compiled-in alpha patch. `DEFAULT_ALPHA` in `config.h` is set to `1.0` (fully opaque) so the terminal renders solid pixels. The `-A` flag can override this at launch.
+#### Opacity classes (tags)
 
-2. **Compositor level** - Hyprland window rules in `windows.conf` apply per-theme opacity:
-   ```
-   # All windows get the theme's default opacity
-   windowrule = opacity $themeOpacityActive $themeOpacityInactive, match:class .*
+| Class | Tag | Who controls opacity | `colors.toml` key |
+|-------|-----|----------------------|-------------------|
+| Regular apps | *(untagged)* | Hyprland compositor | `opacity_active` / `opacity_inactive` |
+| Browsers | `chromium-based-browser` / `firefox-based-browser` | Hyprland compositor | `browser_opacity` |
+| Messengers | `messenger` | Hyprland compositor | `messenger_opacity` |
+| smplOS Rust popups | `self-managed-alpha` | App itself (Slint ARGB surface) | `popup_opacity` |
+| Terminals | `self-managed-alpha` | App itself (st ALPHA_PATCH per-pixel) | `term_opacity_active` |
+| Media / fullscreen | `compositor-opaque` | Hyprland compositor (forced 1.0) | — |
 
-   # Terminals get their own opacity (can be more or less transparent)
-   windowrule = opacity $themeTermOpacityActive $themeTermOpacityInactive, match:class ^(terminal|com\.mitchellh\.ghostty)$
+#### Why `self-managed-alpha` windows use `1.0 override`
 
-   # Media apps and fullscreen are always fully opaque
-   windowrule = opacity 1.0 1.0, match:class ^(mpv|imv|vlc|firefox|chromium|brave)$
-   ```
+Slint (smplOS Rust apps) and st with ALPHA_PATCH render their own semi-transparent pixels directly into an ARGB Wayland surface. If the compositor *also* applies opacity, the two multiply together:
 
-   Rule order matters - **last match wins** in Hyprland. Terminal and media rules come after the generic rule to override it.
+```
+0.85 (app alpha) × 0.85 (compositor) ≈ 0.72 opaque → only 28% see-through
+```
+
+To prevent this, all `self-managed-alpha` windows receive `opacity 1.0 override` from Hyprland, so the compositor passes pixels through untouched and the app's ARGB alpha is the sole controller.
+
+#### Per-app messenger overrides
+
+All messengers default to `messenger_opacity` from the active theme, but individual apps can be pinned to a specific value by uncommenting the override lines in `windows.conf`:
+
+```properties
+# windowrule = opacity 0.70 override 0.70 override, match:class ^(signal)$
+# windowrule = opacity 0.80 override 0.80 override, match:class ^(brave-teams\.microsoft\.com)(.*)$
+```
+
+These lines come *after* the tag-level rule, so they win (Hyprland last-match-wins). No theme rebuild needed — reload Hyprland config with `Super+R`.
+
+#### Adding a new Slint app
+
+If you add a new Rust/Slint app, add one line to `windows.conf` in the `self-managed-alpha` tag block:
+
+```properties
+windowrule = tag +self-managed-alpha, match:class ^(my-new-app)$
+```
+
+The `opacity 1.0 override` rule fires automatically from the tag. Nothing else to change.
 
 ## License
 

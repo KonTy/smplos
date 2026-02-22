@@ -19,8 +19,8 @@ NC='\033[0m'
 log() { echo -e "${GREEN}[push]${NC} $*"; }
 
 # Clean and recreate
-rm -rf "$SHARE"/{eww,bin,hypr,themes,configs,icons,st,notif-center,kb-center,disp-center,webapp-center,applications}
-mkdir -p "$SHARE"/{eww,bin,hypr,themes,configs,icons,st,notif-center,kb-center,disp-center,webapp-center,applications}
+rm -rf "$SHARE"/{eww,bin,hypr,themes,configs,icons,st,notif-center,kb-center,disp-center,webapp-center,app-center,start-menu,applications}
+mkdir -p "$SHARE"/{eww,bin,hypr,themes,configs,icons,st,notif-center,kb-center,disp-center,webapp-center,app-center,start-menu,applications}
 
 # EWW
 cp -r "$SRC_DIR/shared/eww/"* "$SHARE/eww/"
@@ -122,6 +122,41 @@ if [[ -f "$WC_DIR/Cargo.toml" ]]; then
     fi
 else
     log "webapp-center: source not found at $WC_DIR, skipping"
+fi
+
+# App Center (build + copy binary)
+AC_DIR="$SRC_DIR/shared/app-center"
+AC_BIN="$AC_DIR/target/release/app-center"
+if [[ -f "$AC_DIR/Cargo.toml" ]]; then
+    mkdir -p "$SHARE/app-center"
+    log "Building app-center..."
+    (cd "$AC_DIR" && cargo build --release 2>&1 | tail -1)
+    if [[ -f "$AC_BIN" ]]; then
+        cp "$AC_BIN" "$SHARE/app-center/"
+        log "app-center: binary copied"
+    else
+        log "app-center: build FAILED"
+    fi
+else
+    log "app-center: source not found at $AC_DIR, skipping"
+fi
+
+# Start Menu (build + copy binary)
+SM_DIR="$SRC_DIR/shared/start-menu"
+SM_BIN="$SM_DIR/target/release/start-menu"
+if [[ -f "$SM_DIR/Cargo.toml" ]]; then
+    mkdir -p "$SHARE/start-menu"
+    log "Building start-menu..."
+    rm -f "$SM_BIN"
+    if (cd "$SM_DIR" && cargo build --release); then
+        cp "$SM_BIN" "$SHARE/start-menu/"
+        log "start-menu: binary copied"
+    else
+        log "start-menu: build FAILED"
+        exit 1
+    fi
+else
+    log "start-menu: source not found at $SM_DIR, skipping"
 fi
 
 # st-wl terminal (build from source, keep pinned VERSION from config.mk)

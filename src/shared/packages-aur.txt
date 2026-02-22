@@ -14,6 +14,8 @@ satty-bin
 # Brave browser (pre-compiled binary from AUR)
 brave-bin
 
+# Auto-snapshot before every pacman update (pacman hook for timeshift)
+timeshift-autosnap
 
 # Hyprland plugins/extras (optional)
 # hyprland-plugins-git

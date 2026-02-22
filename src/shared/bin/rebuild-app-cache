@@ -115,9 +115,11 @@ scan_appimages() {
 # ── Settings entries (curated) ──
 emit_settings() {
   cat <<'EOF'
+App Center;toggle-app-center;settings;app-center
+Web App Center;webapp-center;settings;webapp-center
 Appearance;smplos-settings appearance;settings;preferences-desktop-theme
-Display;smplos-settings display;settings;preferences-desktop-display
-Keyboard;smplos-settings keyboard;settings;preferences-desktop-keyboard
+Display;smplos-settings display;settings;disp-center
+Keyboard;smplos-settings keyboard;settings;kb-center
 Network;smplos-settings network;settings;preferences-system-network
 Bluetooth;smplos-settings bluetooth;settings;bluetooth
 Audio;smplos-settings audio;settings;audio-volume-high

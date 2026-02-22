@@ -6,10 +6,22 @@ CONF="$HOME/.config/smplos/bindings.conf"
 [[ -f "$CONF" ]] || CONF="$HOME/.config/hypr/bindings.conf"
 [[ -f "$CONF" ]] || { notify-send "Keybind Help" "No bindings.conf found"; exit 1; }
 
+# Messenger bindings (auto-generated, same bindd format)
+MESSENGER_CONF="$HOME/.config/hypr/messenger-bindings.conf"
+
 CACHE="/tmp/smplos-keybinds.cache"
 
-# Rebuild cache only when bindings.conf changes
-if [[ ! -f "$CACHE" ]] || [[ "$CONF" -nt "$CACHE" ]]; then
+# Rebuild cache when any source changes
+cache_stale=false
+[[ ! -f "$CACHE" ]] && cache_stale=true
+[[ "$cache_stale" == false && "$CONF" -nt "$CACHE" ]] && cache_stale=true
+[[ "$cache_stale" == false && -f "$MESSENGER_CONF" && "$MESSENGER_CONF" -nt "$CACHE" ]] && cache_stale=true
+
+if [[ "$cache_stale" == true ]]; then
+  # Combine all binding sources for parsing
+  CONF_FILES="$CONF"
+  [[ -f "$MESSENGER_CONF" ]] && CONF_FILES="$CONF $MESSENGER_CONF"
+
   awk -F, '
   /^# ===/ { next }
   /^# [A-Z][A-Z ]/ {
@@ -68,7 +80,7 @@ if [[ ! -f "$CACHE" ]] || [[ "$CONF" -nt "$CACHE" ]]; then
     }
     printf "%-28s %s\n", combo, desc
   }
-  ' "$CONF" > "$CACHE"
+  ' $CONF_FILES > "$CACHE"
 fi
 
 [[ -s "$CACHE" ]] || { notify-send "Keybind Help" "No keybindings found"; exit 1; }

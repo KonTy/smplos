@@ -1,5 +1,9 @@
-# smplOS Hyprland - Flatpak Applications
-# These are installed from Flathub
+# smplOS - Flatpak Applications
+# These are bundled into the ISO as .flatpak bundles for offline install
+# Format: Flathub application ID (one per line)
+
+# Knowledge management
+com.logseq.Logseq
 
 # Browsers
 # com.google.Chrome

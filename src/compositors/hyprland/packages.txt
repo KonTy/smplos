@@ -33,3 +33,4 @@ rofi-wayland
 
 # ── Wayland Image Viewer ─────────────────────────────────────
 imv
+

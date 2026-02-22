@@ -1,0 +1,100 @@
+#!/bin/bash
+# smplOS: Toggle a messenger window — show/hide floating in the bottom-right corner.
+# Works for native apps (Signal, Telegram) and webapps (brave-discord, brave-teams).
+#
+# Usage: toggle-messenger <window-class> [launch-command...]
+#
+# Behavior:
+#   - Window doesn't exist  → launch it (window rules handle positioning)
+#   - Window visible         → hide to special:messenger_<class>
+#   - Window hidden          → bring back to current workspace, reposition
+#
+# The window is floated, sized phone-like (480x720), and pinned to bottom-right
+# with a gap above the bar.
+
+set -euo pipefail
+
+CLASS="${1:?Usage: toggle-messenger <window-class> [launch-command...]}"
+shift
+LAUNCH_CMD=("$@")
+
+# Sanitize class for special workspace name (no dots/slashes)
+WS_NAME="messenger_${CLASS//[^a-zA-Z0-9_-]/_}"
+
+# Messenger window geometry
+WIDTH=480
+HEIGHT=720
+MARGIN_RIGHT=2
+MARGIN_BOTTOM=34  # 30px bar + 2px offset + 2px gap (matches notif-center)
+
+# Compute pixel position from active monitor
+POS_X=0
+POS_Y=0
+calc_position() {
+  local mon_json
+  mon_json=$(hyprctl -j monitors 2>/dev/null | jq -e '.[] | select(.focused)' 2>/dev/null) || {
+    # Fallback: assume 1920x1080 at origin
+    POS_X=$(( 1920 - WIDTH - MARGIN_RIGHT ))
+    POS_Y=$(( 1080 - HEIGHT - MARGIN_BOTTOM ))
+    return 0
+  }
+  local mon_w mon_h mon_x mon_y scale
+  mon_w=$(echo "$mon_json" | jq -r '.width')
+  mon_h=$(echo "$mon_json" | jq -r '.height')
+  mon_x=$(echo "$mon_json" | jq -r '.x')
+  mon_y=$(echo "$mon_json" | jq -r '.y')
+  scale=$(echo "$mon_json" | jq -r '.scale')
+  # Effective resolution accounts for scaling
+  local eff_w eff_h
+  eff_w=$(awk "BEGIN { printf \"%d\", ${mon_w}/${scale} }")
+  eff_h=$(awk "BEGIN { printf \"%d\", ${mon_h}/${scale} }")
+  POS_X=$(( mon_x + eff_w - WIDTH - MARGIN_RIGHT ))
+  POS_Y=$(( mon_y + eff_h - HEIGHT - MARGIN_BOTTOM ))
+}
+
+# --- Query window state ---
+window_json=$(hyprctl -j clients 2>/dev/null \
+  | jq -e --arg c "$CLASS" \
+    '[.[] | select((.class // "" | test($c; "i")) or (.initialClass // "" | test($c; "i")))] | first // empty' \
+  2>/dev/null) || true
+
+if [[ -n "$window_json" ]]; then
+  addr=$(echo "$window_json" | jq -r '.address')
+  ws_name=$(echo "$window_json" | jq -r '.workspace.name')
+
+  if [[ "$ws_name" == special:* ]]; then
+    # Hidden → bring back to current workspace
+    calc_position
+    hyprctl --batch "\
+      dispatch movetoworkspace e+0,address:${addr};\
+      dispatch focuswindow address:${addr};\
+      dispatch setfloating address:${addr};\
+      dispatch resizewindowpixel exact ${WIDTH} ${HEIGHT},address:${addr};\
+      dispatch movewindowpixel exact ${POS_X} ${POS_Y},address:${addr}" \
+      >/dev/null 2>&1
+  else
+    # Visible → hide to special workspace
+    hyprctl dispatch movetoworkspacesilent "special:${WS_NAME},address:${addr}" \
+      >/dev/null 2>&1
+  fi
+else
+  # Not running → launch with float rules
+  calc_position
+  if [[ ${#LAUNCH_CMD[@]} -gt 0 ]]; then
+    hyprctl dispatch exec "[float; size ${WIDTH} ${HEIGHT}; move ${POS_X} ${POS_Y}]" "${LAUNCH_CMD[*]}" \
+      >/dev/null 2>&1
+  else
+    # Try to launch via .desktop file (single-arg mode like focus-or-launch)
+    name="${CLASS%.desktop}"
+    for dir in "$HOME/.local/share/applications" "/usr/local/share/applications" "/usr/share/applications"; do
+      if [[ -f "$dir/${name}.desktop" ]]; then
+        hyprctl dispatch exec "[float; size ${WIDTH} ${HEIGHT}; move ${POS_X} ${POS_Y}]" "gtk-launch ${name}" \
+          >/dev/null 2>&1
+        exit 0
+      fi
+    done
+    # Last resort: run directly
+    hyprctl dispatch exec "[float; size ${WIDTH} ${HEIGHT}; move ${POS_X} ${POS_Y}]" "$CLASS" \
+      >/dev/null 2>&1
+  fi
+fi

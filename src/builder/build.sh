@@ -111,6 +111,11 @@ setup_build_env() {
         die "Cannot proceed without network access"
     fi
 
+    # ── Ensure pacman cache directory exists ────────────────────────────
+    # The archlinux:latest container image may not have /var/cache/pacman/pkg/.
+    # Without it, pacman warns: "couldn't find or create package cache".
+    mkdir -p /var/cache/pacman/pkg
+
     # ── Bootstrap mirrorlist ────────────────────────────────────────────
     # Minimal reliable mirrors to bootstrap pacman + install reflector.
     cat > /etc/pacman.d/mirrorlist << 'MIRRORS'
@@ -134,7 +139,7 @@ MIRRORS
     # Initialize pacman keyring and populate trust database
     pacman-key --init
     pacman-key --populate archlinux
-    retry pacman --noconfirm -Sy archlinux-keyring
+    retry pacman --noconfirm -Sy --needed archlinux-keyring
     # Re-populate after update so newly-shipped keys are trusted
     pacman-key --populate archlinux
 
@@ -163,7 +168,7 @@ MIRRORS
     retry pacman --noconfirm -Sy
     
     # Install build dependencies (these go in the build container, not the ISO)
-    retry pacman --noconfirm -S archiso git sudo base-devel jq grub
+    retry pacman --noconfirm -S archiso git sudo base-devel jq
     
     # Create build user for any AUR packages we need to compile
     if ! id "builder" &>/dev/null; then
@@ -338,6 +343,69 @@ download_packages() {
             --cachedir "$OFFLINE_MIRROR_DIR/" \
             --dbpath /tmp/offlinedb
     fi
+}
+
+###############################################################################
+# Prepare Flatpak Install List
+###############################################################################
+
+download_flatpaks() {
+    if [[ -n "$SKIP_FLATPAK" || ${#FLATPAK_PACKAGES[@]} -eq 0 ]]; then
+        return
+    fi
+
+    log_step "Preparing Flatpak install list"
+
+    # Flatpak offline bundling inside a build container is fragile (needs
+    # full runtime downloads, D-Bus, etc.).  Instead we embed a simple list
+    # of app IDs.  smplos-flatpak-setup installs them from Flathub on first
+    # login when internet is available.
+    for app_id in "${FLATPAK_PACKAGES[@]}"; do
+        log_info "Queued for first-boot install: $app_id"
+    done
+
+    log_info "${#FLATPAK_PACKAGES[@]} Flatpak(s) will install on first boot (requires internet)"
+}
+
+###############################################################################
+# Download AppImages
+###############################################################################
+
+download_appimages() {
+    if [[ -n "$SKIP_APPIMAGE" || ${#APPIMAGE_PACKAGES[@]} -eq 0 ]]; then
+        return
+    fi
+
+    log_step "Downloading AppImages"
+
+    local appimage_cache="$CACHE_DIR/appimages"
+    mkdir -p "$appimage_cache"
+
+    for entry in "${APPIMAGE_PACKAGES[@]}"; do
+        local name="${entry%%|*}"
+        local url="${entry##*|}"
+
+        if [[ -z "$name" || -z "$url" || "$name" == "$url" ]]; then
+            log_warn "Invalid AppImage entry (expected name|url): $entry"
+            continue
+        fi
+
+        local dest="$appimage_cache/${name}.AppImage"
+        if [[ -f "$dest" ]]; then
+            log_info "Cached: $name"
+        else
+            log_info "Downloading: $name from $url"
+            if retry curl -L -o "$dest" "$url" 2>&1 | tail -3; then
+                chmod +x "$dest"
+                log_info "Downloaded: $name ($(du -h "$dest" | cut -f1))"
+            else
+                log_warn "Failed to download AppImage: $name"
+                rm -f "$dest"
+            fi
+        fi
+    done
+
+    log_info "AppImages ready"
 }
 
 ###############################################################################
@@ -545,9 +613,8 @@ iso_application="smplOS Live/Installer"
 iso_version="$ISO_VERSION"
 install_dir="arch"
 buildmodes=('iso')
-bootmodes=('bios.syslinux.mbr' 'bios.syslinux.eltorito'
-           'uefi-ia32.grub.esp' 'uefi-x64.grub.esp'
-           'uefi-ia32.grub.eltorito' 'uefi-x64.grub.eltorito')
+bootmodes=('bios.syslinux'
+           'uefi.systemd-boot')
 arch="x86_64"
 pacman_conf="pacman.conf"
 airootfs_image_type="squashfs"
@@ -882,6 +949,72 @@ build_disp_center() {
     log_info "disp-center built and installed successfully"
 }
 
+build_app_center() {
+    log_step "Building app-center from source"
+
+    local airootfs="$PROFILE_DIR/airootfs"
+    local ac_src="$SRC_DIR/shared/app-center"
+
+    if [[ ! -f "$ac_src/Cargo.toml" ]]; then
+        log_warn "app-center source not found at $ac_src, skipping"
+        return
+    fi
+
+    # ── Source-hash cache: skip build if source hasn't changed ──
+    local bin_cache="/var/cache/smplos/binaries"
+    local src_hash
+    src_hash=$({ find "$ac_src/src" "$ac_src/ui" -type f -exec sha256sum {} + 2>/dev/null; \
+        sha256sum "$ac_src/Cargo.toml" "$ac_src/Cargo.lock" "$ac_src/build.rs" 2>/dev/null; \
+    } | sort | sha256sum | cut -d' ' -f1)
+    local cache_key="app-center-${src_hash}"
+
+    if [[ -f "$bin_cache/$cache_key" ]]; then
+        log_info "app-center source unchanged, using cached binary ($cache_key)"
+        install -Dm755 "$bin_cache/$cache_key" "$airootfs/usr/local/bin/app-center"
+        install -Dm755 "$bin_cache/$cache_key" "$airootfs/root/smplos/bin/app-center"
+        return 0
+    fi
+
+    # Install Rust toolchain and build deps (likely already installed by other builds)
+    pacman --noconfirm --needed -S rust cargo cmake pkgconf fontconfig freetype2 \
+        libxkbcommon wayland libglvnd mesa openssl 2>/dev/null || true
+
+    # Build in a temp dir to avoid polluting the source tree
+    local build_dir="/tmp/app-center-build"
+    rm -rf "$build_dir"
+    cp -r "$ac_src" "$build_dir"
+    cd "$build_dir"
+
+    log_info "Compiling app-center (release)..."
+    cargo build --release
+
+    local bin_path="$build_dir/target/release/app-center"
+    if [[ ! -x "$bin_path" ]]; then
+        log_warn "app-center binary not found after build, skipping"
+        cd "$SRC_DIR"
+        rm -rf "$build_dir"
+        return
+    fi
+
+    # Install binary into the ISO
+    install -Dm755 "$bin_path" "$airootfs/usr/local/bin/app-center"
+    strip "$airootfs/usr/local/bin/app-center"
+
+    # Also stage for the installer to deploy to the installed system
+    install -Dm755 "$bin_path" "$airootfs/root/smplos/bin/app-center"
+    strip "$airootfs/root/smplos/bin/app-center"
+
+    # Save to cache for future builds
+    mkdir -p "$bin_cache"
+    cp "$airootfs/usr/local/bin/app-center" "$bin_cache/$cache_key"
+    log_info "Cached app-center binary as $cache_key"
+
+    cd "$SRC_DIR"
+    rm -rf "$build_dir"
+
+    log_info "app-center built and installed successfully"
+}
+
 ###############################################################################
 # Configure Airootfs
 ###############################################################################
@@ -914,6 +1047,29 @@ setup_airootfs() {
     mkdir -p "$airootfs/opt/appimages"
     mkdir -p "$airootfs/opt/flatpaks"
     mkdir -p "$airootfs/var/cache/smplos/mirror"
+
+    # Copy cached AppImages into airootfs
+    local appimage_cache="$CACHE_DIR/appimages"
+    if [[ -d "$appimage_cache" ]] && ls "$appimage_cache"/*.AppImage &>/dev/null; then
+        log_info "Copying AppImages into ISO..."
+        cp "$appimage_cache"/*.AppImage "$airootfs/opt/appimages/"
+        chmod +x "$airootfs/opt/appimages/"*.AppImage
+        local ai_count
+        ai_count=$(ls -1 "$airootfs/opt/appimages/"*.AppImage 2>/dev/null | wc -l)
+        log_info "Bundled $ai_count AppImage(s)"
+    fi
+
+    # Copy Flatpak online-install list (offline bundles are complex;
+    # for now we install from Flathub on first boot when internet is available)
+    local flatpak_cache="$CACHE_DIR/flatpaks"
+    if [[ -f "$flatpak_cache/install-online.txt" ]]; then
+        cp "$flatpak_cache/install-online.txt" "$airootfs/opt/flatpaks/install-online.txt"
+    fi
+    # Write the flatpak list directly from our package array
+    if [[ ${#FLATPAK_PACKAGES[@]} -gt 0 ]]; then
+        printf '%s\n' "${FLATPAK_PACKAGES[@]}" > "$airootfs/opt/flatpaks/install-online.txt"
+        log_info "Flatpak install list: ${#FLATPAK_PACKAGES[@]} app(s)"
+    fi
     
     # Copy offline mirror into airootfs
     # Uses --reflink=auto for CoW on supported filesystems (avoids real duplication)
@@ -1115,6 +1271,15 @@ setup_airootfs() {
         cp "$SRC_DIR/shared/configs/smplos/bindings.conf" "$skel/.config/hypr/bindings.conf"
         cp "$SRC_DIR/shared/configs/smplos/bindings.conf" "$skel/.config/smplos/bindings.conf"
     fi
+
+    # Copy messengers.conf (default messenger apps for toggle keybindings)
+    if [[ -f "$SRC_DIR/shared/configs/smplos/messengers.conf" ]]; then
+        log_info "Copying messengers.conf"
+        mkdir -p "$skel/.config/smplos"
+        cp "$SRC_DIR/shared/configs/smplos/messengers.conf" "$skel/.config/smplos/messengers.conf"
+        # Create empty placeholder so Hyprland source doesn't fail before generator runs
+        touch "$skel/.config/hypr/messenger-bindings.conf"
+    fi
     
     # Copy installer (gum-based configurator + helpers)
     if [[ -d "$SRC_DIR/shared/installer" ]]; then
@@ -1290,6 +1455,11 @@ FCHOOK
         cp "$SRC_DIR/shared/configs/smplos/bindings.conf" "$airootfs/root/smplos/config/hypr/bindings.conf"
         cp "$SRC_DIR/shared/configs/smplos/bindings.conf" "$airootfs/root/smplos/config/smplos/bindings.conf"
     fi
+    # Copy messengers.conf into post-install store
+    if [[ -f "$SRC_DIR/shared/configs/smplos/messengers.conf" ]]; then
+        cp "$SRC_DIR/shared/configs/smplos/messengers.conf" "$airootfs/root/smplos/config/smplos/messengers.conf"
+        touch "$airootfs/root/smplos/config/hypr/messenger-bindings.conf"
+    fi
     # Copy shared configs (dunst, etc.) into post-install store
     if [[ -d "$SRC_DIR/shared/configs/dunst" ]]; then
         mkdir -p "$airootfs/root/smplos/config/dunst"
@@ -1343,34 +1513,109 @@ AUTOLOGIN
 setup_helper_scripts() {
     local airootfs="$1"
     
+    # Flatpak first-boot setup: add Flathub remote and install listed apps
     cat > "$airootfs/usr/local/bin/smplos-flatpak-setup" << 'FLATPAKSETUP'
 #!/bin/bash
-flatpak remote-add --if-not-exists flathub https://dl.flathub.org/repo/flathub.flatpakrepo
+# Install Flatpak apps from the bundled list (requires internet)
 
-for bundle in /opt/flatpaks/*.flatpak; do
-    [[ -f "$bundle" ]] || continue
-    echo "Installing: $(basename "$bundle")"
-    flatpak install --noninteractive --user "$bundle" 2>/dev/null || true
+FLATPAK_LIST="/opt/flatpaks/install-online.txt"
+MARKER="$HOME/.config/smplos-flatpak-done"
+LOG="$HOME/.cache/smplos/flatpak-setup.log"
+
+mkdir -p "$(dirname "$LOG")"
+exec &> >(tee -a "$LOG")
+
+[[ -f "$MARKER" ]] && { echo "Flatpak setup already done"; exit 0; }
+[[ -f "$FLATPAK_LIST" ]] || { echo "No flatpak list at $FLATPAK_LIST"; exit 0; }
+
+echo "==> smplos-flatpak-setup starting at $(date)"
+
+# Wait for network (up to 30s)
+for i in $(seq 1 30); do
+    if ping -c1 -W1 flathub.org &>/dev/null; then
+        echo "Network available"
+        break
+    fi
+    [[ $i -eq 30 ]] && { echo "No network after 30s, will retry next login"; exit 0; }
+    sleep 1
 done
+
+flatpak remote-add --if-not-exists --user flathub https://dl.flathub.org/repo/flathub.flatpakrepo || {
+    echo "ERROR: Failed to add Flathub remote"
+    exit 0
+}
+
+installed=0
+failed=0
+while IFS= read -r app_id; do
+    [[ -z "$app_id" || "$app_id" == \#* ]] && continue
+    echo "Installing Flatpak: $app_id"
+    if flatpak install --noninteractive --user flathub "$app_id" 2>&1; then
+        installed=$((installed + 1))
+        # Rename the desktop entry to include (Flatpak) suffix
+        local_desktop="$HOME/.local/share/flatpak/exports/share/applications/${app_id}.desktop"
+        override_desktop="$HOME/.local/share/applications/${app_id}.desktop"
+        if [[ -f "$local_desktop" ]]; then
+            mkdir -p "$HOME/.local/share/applications"
+            sed 's/^Name=\(.*\)/Name=\1 (Flatpak)/' "$local_desktop" > "$override_desktop"
+        fi
+    else
+        echo "Warning: Failed to install $app_id"
+        failed=$((failed + 1))
+    fi
+done < "$FLATPAK_LIST"
+
+echo "==> Flatpak setup complete: $installed installed, $failed failed"
+
+# Only mark done if all succeeded
+if [[ $failed -eq 0 ]]; then
+    mkdir -p "$(dirname "$MARKER")"
+    touch "$MARKER"
+else
+    echo "Some apps failed — will retry next login"
+fi
 FLATPAKSETUP
     chmod +x "$airootfs/usr/local/bin/smplos-flatpak-setup"
     
+    # AppImage setup: create desktop entries for bundled AppImages
     cat > "$airootfs/usr/local/bin/smplos-appimage-setup" << 'APPIMAGESETUP'
 #!/bin/bash
+# Create desktop entries for bundled AppImages
+set -euo pipefail
+
 mkdir -p "$HOME/.local/share/applications"
+mkdir -p "$HOME/.local/share/icons"
 
 for appimage in /opt/appimages/*.AppImage; do
     [[ -f "$appimage" ]] || continue
     name=$(basename "$appimage" .AppImage)
-    cat > "$HOME/.local/share/applications/$name.desktop" << EOF
+    desktop_file="$HOME/.local/share/applications/${name}-appimage.desktop"
+
+    # Skip if already created
+    [[ -f "$desktop_file" ]] && continue
+
+    # Try to extract icon from the AppImage
+    icon_name="application-x-executable"
+    tmpdir=$(mktemp -d)
+    if cd "$tmpdir" && "$appimage" --appimage-extract '*.png' &>/dev/null; then
+        icon_src=$(find "$tmpdir/squashfs-root" -name '*.png' -size +1k 2>/dev/null | head -1)
+        if [[ -n "$icon_src" ]]; then
+            cp "$icon_src" "$HOME/.local/share/icons/${name}-appimage.png"
+            icon_name="${name}-appimage"
+        fi
+    fi
+    rm -rf "$tmpdir"
+
+    cat > "$desktop_file" << EOF
 [Desktop Entry]
 Type=Application
-Name=$name
-Exec=$appimage
-Icon=application-x-executable
+Name=${name} (AppImage)
+Exec=${appimage} --no-sandbox %U
+Icon=${icon_name}
 Terminal=false
 Categories=Utility;
 EOF
+    echo "Created desktop entry: ${name} (AppImage)"
 done
 APPIMAGESETUP
     chmod +x "$airootfs/usr/local/bin/smplos-appimage-setup"
@@ -1382,34 +1627,57 @@ APPIMAGESETUP
 
 setup_boot() {
     log_step "Configuring boot"
-    
+
+    # ── systemd-boot for UEFI ─────────────────────────────────────────
+    # systemd-boot copies kernel+initramfs INTO the EFI FAT partition,
+    # making it self-contained.  This is what official Arch, EndeavourOS,
+    # and CachyOS all use.  Unlike GRUB, there is no fragile search for
+    # the ISO9660 filesystem -- it just works on all UEFI firmware.
+    mkdir -p "$PROFILE_DIR/efiboot/loader/entries"
+
+    cat > "$PROFILE_DIR/efiboot/loader/loader.conf" << 'LOADERCONF'
+timeout 5
+default 01-smplos.conf
+LOADERCONF
+
+    cat > "$PROFILE_DIR/efiboot/loader/entries/01-smplos.conf" << 'ENTRY1'
+title    smplOS
+sort-key 01
+linux    /%INSTALL_DIR%/boot/%ARCH%/vmlinuz-linux-zen
+initrd   /%INSTALL_DIR%/boot/%ARCH%/initramfs-linux-zen.img
+# Keep boot output silent and pinned to tty1 to avoid greetd/Plymouth handoff flash
+options  archisobasedir=%INSTALL_DIR% archisosearchuuid=%ARCHISO_UUID% quiet splash plymouth.nolog loglevel=3 rd.udev.log_level=3 rd.systemd.show_status=false systemd.show_status=false vt.global_cursor_default=0 console=tty1 mce=dont_log_ce
+ENTRY1
+
+    cat > "$PROFILE_DIR/efiboot/loader/entries/02-smplos-safe.conf" << 'ENTRY2'
+title    smplOS (Safe Mode)
+sort-key 02
+linux    /%INSTALL_DIR%/boot/%ARCH%/vmlinuz-linux
+initrd   /%INSTALL_DIR%/boot/%ARCH%/initramfs-linux.img
+options  archisobasedir=%INSTALL_DIR% archisosearchuuid=%ARCHISO_UUID% nomodeset mce=dont_log_ce
+ENTRY2
+
+    # ── GRUB loopback.cfg for Ventoy / loopback booting ───────────────
+    # When systemd-boot is the primary UEFI bootloader, mkarchiso still
+    # copies grub/loopback.cfg to the ISO9660 for tools like Ventoy that
+    # chain-load GRUB in loopback mode.
     mkdir -p "$PROFILE_DIR/grub"
-    cat > "$PROFILE_DIR/grub/grub.cfg" << 'GRUBCFG'
-insmod part_gpt
-insmod part_msdos
-insmod fat
-insmod iso9660
-insmod all_video
-insmod font
-
-set default="0"
-set timeout=5
-set gfxmode=auto
-set gfxpayload=keep
-
-# Function to load initrd with optional microcode
-# Microcode may be bundled in initramfs or separate files
-menuentry "smplOS (Hyprland)" --class arch --class gnu-linux --class gnu --class os {
-    linux /%INSTALL_DIR%/boot/x86_64/vmlinuz-linux-zen archisobasedir=%INSTALL_DIR% archisosearchuuid=%ARCHISO_UUID% quiet splash mce=dont_log_ce
-    initrd /%INSTALL_DIR%/boot/x86_64/initramfs-linux-zen.img
+    cat > "$PROFILE_DIR/grub/loopback.cfg" << 'LOOPBACKCFG'
+menuentry "smplOS" --class arch --class gnu-linux --class gnu --class os {
+    set gfxpayload=keep
+    # Keep boot output silent and pinned to tty1 to avoid greetd/Plymouth handoff flash
+    linux /%INSTALL_DIR%/boot/%ARCH%/vmlinuz-linux-zen archisobasedir=%INSTALL_DIR% archisosearchuuid=%ARCHISO_UUID% quiet splash plymouth.nolog loglevel=3 rd.udev.log_level=3 rd.systemd.show_status=false systemd.show_status=false vt.global_cursor_default=0 console=tty1 mce=dont_log_ce
+    initrd /%INSTALL_DIR%/boot/%ARCH%/initramfs-linux-zen.img
 }
 
 menuentry "smplOS (Safe Mode)" --class arch --class gnu-linux --class gnu --class os {
-    linux /%INSTALL_DIR%/boot/x86_64/vmlinuz-linux-zen archisobasedir=%INSTALL_DIR% archisosearchuuid=%ARCHISO_UUID% nomodeset mce=dont_log_ce
-    initrd /%INSTALL_DIR%/boot/x86_64/initramfs-linux-zen.img
+    set gfxpayload=keep
+    linux /%INSTALL_DIR%/boot/%ARCH%/vmlinuz-linux archisobasedir=%INSTALL_DIR% archisosearchuuid=%ARCHISO_UUID% nomodeset mce=dont_log_ce
+    initrd /%INSTALL_DIR%/boot/%ARCH%/initramfs-linux.img
 }
-GRUBCFG
+LOOPBACKCFG
 
+    # ── Syslinux for BIOS boot ────────────────────────────────────────
     mkdir -p "$PROFILE_DIR/syslinux"
     cat > "$PROFILE_DIR/syslinux/syslinux.cfg" << 'SYSLINUXCFG'
 DEFAULT select
@@ -1434,18 +1702,19 @@ UI vesamenu.c32
 MENU TITLE smplOS Boot Menu
 
 LABEL arch
-    MENU LABEL smplOS (Hyprland)
+    MENU LABEL smplOS
     LINUX /%INSTALL_DIR%/boot/x86_64/vmlinuz-linux-zen
     INITRD /%INSTALL_DIR%/boot/x86_64/initramfs-linux-zen.img
-    APPEND archisobasedir=%INSTALL_DIR% archisosearchuuid=%ARCHISO_UUID% quiet splash mce=dont_log_ce
+    # Keep boot output silent and pinned to tty1 to avoid greetd/Plymouth handoff flash
+    APPEND archisobasedir=%INSTALL_DIR% archisosearchuuid=%ARCHISO_UUID% quiet splash plymouth.nolog loglevel=3 rd.udev.log_level=3 rd.systemd.show_status=false systemd.show_status=false vt.global_cursor_default=0 console=tty1 mce=dont_log_ce
 
 LABEL arch_safe
     MENU LABEL smplOS (Safe Mode)
-    LINUX /%INSTALL_DIR%/boot/x86_64/vmlinuz-linux-zen
-    INITRD /%INSTALL_DIR%/boot/x86_64/initramfs-linux-zen.img
+    LINUX /%INSTALL_DIR%/boot/x86_64/vmlinuz-linux
+    INITRD /%INSTALL_DIR%/boot/x86_64/initramfs-linux.img
     APPEND archisobasedir=%INSTALL_DIR% archisosearchuuid=%ARCHISO_UUID% nomodeset mce=dont_log_ce
 ARCHISOSYS
-    
+
     log_info "Boot configuration updated"
 }
 
@@ -1508,6 +1777,8 @@ main() {
     setup_profile
     download_packages
     process_aur_packages
+    download_flatpaks
+    download_appimages
     create_repo_database
     setup_pacman_conf
     update_package_list
@@ -1517,6 +1788,7 @@ main() {
     build_notif_center
     build_kb_center
     build_disp_center
+    build_app_center
     setup_boot
     build_iso
     

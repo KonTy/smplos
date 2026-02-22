@@ -102,11 +102,8 @@ blueman
 gammastep
 
 # ── Filesystem Tools ──────────────────────────────────────────
-btrfs-progs
-snapper
-grub-btrfs
-snap-pac              # auto-create btrfs snapshots on pacman transactions
-fzf                   # terminal fuzzy selector (used by manage-webapps)
+e2fsprogs
+timeshift             # system snapshots via rsync (ext4-compatible)
 
 # ── Bootloaders ──────────────────────────────────────────────
 grub
@@ -135,7 +132,9 @@ plymouth
 # ── Applications ─────────────────────────────────────────────
 mpv
 keepassxc
-mission-center
+btop
+flameshot
+kooha
 
 # ── Media Codecs ─────────────────────────────────────────────
 ffmpeg
@@ -145,6 +144,8 @@ gst-plugins-good
 gst-plugins-bad
 gst-plugins-ugly
 gst-libav
-
+# ── Flatpak & AppImage Support ───────────────────────────────
+flatpak
+fuse2                 # FUSE support for AppImage mounting
 # ── XDG Portals ──────────────────────────────────────────────
 xdg-desktop-portal-gtk

@@ -24,7 +24,8 @@ assigns effort, and defines a rough execution order.
 - [9. Autostart & Environment](#9-autostart--environment)
 - [10. Input Config](#10-input-config)
 - [11. Packages](#11-packages)
-- [12. Slint Apps (kb-center, notif-center)](#12-slint-apps-kb-center-notif-center)
+- [12. Slint Apps (kb-center, notif-center, disp-center, webapp-center)](#12-slint-apps-kb-center-notif-center-disp-center-webapp-center)
+- [12b. Messenger System](#12b-messenger-system)
 - [13. Installer](#13-installer)
 - [14. Build System](#14-build-system)
 - [15. Already Working](#15-already-working)
@@ -605,13 +606,13 @@ wmctrl
 
 ---
 
-## 12. Slint Apps (kb-center, notif-center)
+## 12. Slint Apps (kb-center, notif-center, disp-center, webapp-center)
 
-**Effort: Moderate**
+**Effort: Moderate (kb-center, notif-center, webapp-center), Major (disp-center)**
 
-Both apps use `winit` as the window backend. On Wayland, they set `app_id` via
-platform-specific extensions for window rule matching. On X11, they need to set
-`WM_CLASS` instead.
+All four apps use `winit` (via Slint) as the window backend. On Wayland, they
+set `app_id` via platform-specific extensions for window rule matching. On X11,
+they need to set `WM_CLASS` instead.
 
 ### Current (Wayland only)
 
@@ -656,6 +657,67 @@ x11-dl = "2"  # or rely on winit's x11 feature
 
 - Uses `dunstctl` only -- fully cross-platform
 - Just needs the `WM_CLASS` fix above
+
+### disp-center Specifics
+
+**Effort: Major** -- The app has a `CompositorBackend` trait with runtime
+detection (`HYPRLAND_INSTANCE_SIGNATURE` -> Hyprland, `DISPLAY` -> future
+xrandr). The architecture is ready for DWM/X11 but only the Hyprland backend
+is implemented. Needs:
+
+- **New `XrandrBackend`** implementing the `CompositorBackend` trait:
+  - `list_monitors()` -> `xrandr --query` parser
+  - `apply_config()` -> `xrandr --output ... --mode ... --pos ...` commands
+  - `get_current_config()` -> `xrandr --query` parser
+- The Hyprland backend uses `hyprctl monitors -j`, `hyprctl keyword monitor`,
+  `hyprctl dispatch dpms` -- none of these exist on X11
+- Config persistence: currently writes to `~/.config/hypr/monitors.conf` --
+  X11 should write to `~/.config/smplos/monitors.sh` or similar (a script
+  sourced from autostart)
+
+### webapp-center Specifics
+
+- Manages `.desktop` files and web app profiles -- **fully cross-platform**
+- No compositor-specific code whatsoever
+- Just needs the `WM_CLASS` fix above for window rule matching
+
+---
+
+## 12b. Messenger System
+
+**Effort: Major**
+
+The messenger system (`messenger-toggle`, `messenger-keybinds`) is entirely
+Hyprland IPC with no X11 fallback. These are 100% Hyprland-only today.
+
+### messenger-toggle
+
+Uses `hyprctl dispatch movetoworkspacesilent`, `hyprctl dispatch focuswindow`,
+`hyprctl dispatch togglefloating`, `hyprctl -j clients` -- all Hyprland IPC.
+
+**X11 plan:** Replace with `xdotool` + `wmctrl` equivalents:
+```bash
+# Find window
+wid=$(xdotool search --class "$class" | head -1)
+# Toggle visibility (map/unmap or move to/from scratchpad tag)
+xdotool windowactivate "$wid"  # or windowminimize + windowactivate
+# Float
+wmctrl -i -r "$wid" -b toggle,above
+```
+
+DWM scratchpad patch may be better suited -- toggle windows to/from a hidden
+tag rather than the Hyprland workspace shuffle.
+
+### messenger-keybinds
+
+Generates Hyprland `bindd` format keybindings to
+`~/.config/hypr/messenger-bindings.conf`. For DWM, this would need to generate
+C key structs (or use `dwm-ipc` commands). This is tightly coupled to the
+bindings.conf parser work (Section 2).
+
+### focus-notification-app
+
+Uses `hyprctl dispatch focuswindow` -- needs `xdotool windowactivate` on X11.
 
 ---
 
@@ -794,9 +856,16 @@ Recommended implementation sequence, roughly ordered by dependency and impact:
 14. **Lock screen** -- i3lock-color wrapper with theme colors
 15. **Idle management** -- xidlehook config
 
+### Phase 2b: New Features (added since initial plan)
+
+15b. **disp-center XrandrBackend** -- implement `CompositorBackend` trait for xrandr
+15c. **messenger-toggle X11** -- rewrite with xdotool/wmctrl or DWM scratchpad
+15d. **messenger-keybinds X11** -- integrate with bindings.conf parser (Section 2)
+15e. **focus-notification-app X11** -- xdotool windowactivate fallback
+
 ### Phase 3: Polish & Build Integration
 
-16. **Slint apps WM_CLASS** -- kb-center + notif-center X11 window properties
+16. **Slint apps WM_CLASS** -- all 4 apps (kb-center, notif-center, disp-center, webapp-center)
 17. **Installer compositor selection** -- ask user or detect from ISO
 18. **Build system** -- `build_dwm()`, `build_st_x11()` functions
 19. **ISO build** -- `COMPOSITOR=dwm ./build-iso.sh`
@@ -828,6 +897,10 @@ Once implemented, verify each item works on DWM/X11:
 - [ ] Floating window rules (messengers, calculators)
 - [ ] Wallpaper set + cycle
 - [ ] Super+K keybind help shows correct bindings
+- [ ] disp-center detects and configures monitors via xrandr
+- [ ] webapp-center creates/launches/manages web apps
+- [ ] Messenger toggle (show/hide Signal, Discord, etc.)
+- [ ] Notification click focuses the source app
 - [ ] st terminal themed, SIXEL images work
 - [ ] Idle -> lock -> DPMS -> suspend cascade
 - [ ] Multi-monitor support

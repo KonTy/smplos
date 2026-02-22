@@ -1,9 +1,0 @@
-#!/bin/bash
-# Launch manage-webapps in a centered floating terminal on Hyprland.
-# On non-Hyprland compositors (X11/DWM, etc.), launch normally.
-
-if command -v hyprctl &>/dev/null && [[ -n "${HYPRLAND_INSTANCE_SIGNATURE:-}" && -n "${WAYLAND_DISPLAY:-}" ]]; then
-  hyprctl dispatch exec "[float;size 760 560;center] terminal -e manage-webapps"
-else
-  terminal -e manage-webapps
-fi

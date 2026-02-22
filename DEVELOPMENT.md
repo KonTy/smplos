@@ -67,26 +67,25 @@ Use `--reset` to wipe the VM disk and start fresh:
 
 ## Adding a Settings Entry
 
-The start menu has a **Settings** tab (press <kbd>Alt</kbd>+<kbd>S</kbd> in the launcher). Each entry there launches a system tool -- Appearance opens the theme picker, Audio opens pavucontrol, etc. Here's how to add a new one.
+The start menu has a **Settings** category. Each entry there launches a system tool -- Appearance opens the theme picker, Audio opens pavucontrol, etc. Here's how to add a new one.
 
 ### Overview
 
-Settings entries involve three pieces:
+Settings entries involve two pieces:
 
 | File | Role |
 |------|------|
-| `src/shared/bin/rebuild-app-cache` | Registers the entry so rofi can display it |
+| `src/shared/bin/rebuild-app-cache` | Registers the entry in the app index |
 | `src/shared/bin/smplos-settings` | Dispatches the entry to the right tool |
-| `src/shared/bin/rofi-settings-src` | Feeds entries to rofi (no changes needed) |
 
 The flow:
 
 ```
 rebuild-app-cache          builds ~/.cache/smplos/app_index
        |
-rofi-settings-src          reads app_index, feeds settings entries to rofi
+start-menu                 reads app_index, shows entries by category
        |
-user clicks an entry       rofi passes the exec command
+user clicks an entry       start-menu executes the command
        |
 smplos-settings <category> dispatches to the right tool
 ```
@@ -98,6 +97,8 @@ Open `src/shared/bin/rebuild-app-cache` and find the `emit_settings()` function.
 ```bash
 emit_settings() {
   cat <<'EOF'
+App Center;toggle-app-center;settings;system-software-install
+Web Apps;webapp-center;settings;applications-internet
 Appearance;smplos-settings appearance;settings;preferences-desktop-theme
 Display;smplos-settings display;settings;preferences-desktop-display
 Keyboard;smplos-settings keyboard;settings;preferences-desktop-keyboard
@@ -119,8 +120,8 @@ Name;Command;Category;Icon
 
 | Field | Description |
 |-------|-------------|
-| **Name** | What the user sees in the launcher |
-| **Command** | What rofi executes when the entry is selected |
+| **Name** | What the user sees in the start menu |
+| **Command** | What gets executed when the entry is selected |
 | **Category** | Must be `settings` to appear in the Settings tab |
 | **Icon** | A freedesktop icon name (from your icon theme) or leave empty |
 
@@ -174,8 +175,7 @@ Don't forget to update the usage string at the bottom of the file:
 # Rebuild the app index
 rebuild-app-cache
 
-# Open the launcher and switch to Settings tab (Alt+S)
-launcher settings
+# Open the start menu and click the Settings category
 ```
 
 Your new entry should appear in the list. Click it (or press Enter) to launch.
@@ -208,4 +208,4 @@ Keyboard;smplos-settings keyboard;settings;preferences-desktop-keyboard
     ;;
 ```
 
-Two lines of code, and Keyboard Center appears in the start menu's Settings tab.
+Two lines of code, and Keyboard Center appears in the start menu's Settings category.

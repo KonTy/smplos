@@ -1,9 +1,0 @@
-#!/bin/bash
-# Launch create-webapp in a centered floating terminal on Hyprland.
-# On non-Hyprland compositors (X11/DWM, etc.), launch normally.
-
-if command -v hyprctl &>/dev/null && [[ -n "${HYPRLAND_INSTANCE_SIGNATURE:-}" && -n "${WAYLAND_DISPLAY:-}" ]]; then
-  hyprctl dispatch exec "[float;size 640 480;center] terminal -e create-webapp"
-else
-  terminal -e create-webapp
-fi

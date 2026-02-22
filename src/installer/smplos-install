@@ -162,7 +162,7 @@ partition_disk() {
         parted -s "$DISK" mklabel gpt
         parted -s "$DISK" mkpart ESP fat32 1MiB 513MiB
         parted -s "$DISK" set 1 esp on
-        parted -s "$DISK" mkpart primary btrfs 513MiB 100%
+        parted -s "$DISK" mkpart primary ext4 513MiB 100%
         
         # Determine partition names
         if [[ "$DISK" == *"nvme"* ]] || [[ "$DISK" == *"mmcblk"* ]]; then
@@ -182,7 +182,7 @@ partition_disk() {
         
         # MBR partitioning for BIOS
         parted -s "$DISK" mklabel msdos
-        parted -s "$DISK" mkpart primary btrfs 1MiB 100%
+        parted -s "$DISK" mkpart primary ext4 1MiB 100%
         parted -s "$DISK" set 1 boot on
         
         if [[ "$DISK" == *"nvme"* ]] || [[ "$DISK" == *"mmcblk"* ]]; then
@@ -195,8 +195,8 @@ partition_disk() {
     fi
     
     # Format root partition
-    log "Formatting root partition with BTRFS..."
-    mkfs.btrfs -f "$ROOT_PART" >> "$LOG_FILE" 2>&1
+    log "Formatting root partition with ext4..."
+    mkfs.ext4 -F "$ROOT_PART" >> "$LOG_FILE" 2>&1
     
     log "Partitioning complete"
 }
@@ -213,23 +213,7 @@ mount_filesystems() {
     # Mount root partition
     log "Mounting root partition..."
     mount "$ROOT_PART" "$MOUNT_POINT"
-    
-    # Create BTRFS subvolumes
-    log "Creating BTRFS subvolumes..."
-    btrfs subvolume create "$MOUNT_POINT/@" >> "$LOG_FILE" 2>&1
-    btrfs subvolume create "$MOUNT_POINT/@home" >> "$LOG_FILE" 2>&1
-    btrfs subvolume create "$MOUNT_POINT/@snapshots" >> "$LOG_FILE" 2>&1
-    btrfs subvolume create "$MOUNT_POINT/@var_log" >> "$LOG_FILE" 2>&1
-    
-    # Unmount and remount with subvolumes
-    umount "$MOUNT_POINT"
-    
-    mount -o subvol=@,compress=zstd,noatime "$ROOT_PART" "$MOUNT_POINT"
-    mkdir -p "$MOUNT_POINT"/{home,.snapshots,var/log,boot}
-    
-    mount -o subvol=@home,compress=zstd,noatime "$ROOT_PART" "$MOUNT_POINT/home"
-    mount -o subvol=@snapshots,compress=zstd,noatime "$ROOT_PART" "$MOUNT_POINT/.snapshots"
-    mount -o subvol=@var_log,compress=zstd,noatime "$ROOT_PART" "$MOUNT_POINT/var/log"
+    mkdir -p "$MOUNT_POINT"/{home,var/log,boot}
     
     # Mount EFI partition if UEFI
     if [[ -n "$EFI_PART" ]]; then
@@ -261,7 +245,7 @@ install_base() {
     
     pacstrap -C /etc/pacman.conf "$MOUNT_POINT" \
         base linux-zen linux-firmware \
-        btrfs-progs \
+        e2fsprogs \
         grub efibootmgr \
         networkmanager \
         sudo vim nano \

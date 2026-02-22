@@ -108,7 +108,7 @@ window {
 }
 
 .ws-dot {
-  min-width: 24px;
+  min-width: 16px;
   min-height: 24px;
   border-radius: 50%;
   padding: 0;
@@ -116,21 +116,22 @@ window {
 }
 
 .ws-dot label {
-  font-size: 14px;
-  color: rgba($fg-dim, 0.35);
+  font-size: 12px;
+  font-family: monospace;
+  color: rgba($fg-dim, 0.6);
 }
 
 .ws-dot:hover label {
-  color: rgba($accent, 0.6);
+  color: rgba($accent, 0.8);
 }
 
 .ws-dot.occupied label {
-  color: rgba($fg, 0.5);
+  color: rgba($fg, 0.8);
 }
 
 .ws-dot.active label {
   color: $accent;
-  font-size: 16px;
+  font-size: 15px;
 }
 
 /* Window title */

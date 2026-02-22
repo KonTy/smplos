@@ -212,7 +212,8 @@ sudo mkdir -p /etc/greetd
 
 cat <<EOF | sudo tee /etc/greetd/config.toml
 [terminal]
-vt = 1
+# Keep greeter off tty1 so Plymouth handoff does not flash console text
+vt = "next"
 
 [default_session]
 command = "tuigreet --remember-session --cmd start-hyprland"
@@ -249,10 +250,14 @@ EOF
 
   # Configure silent boot in GRUB
   if [[ -f /etc/default/grub ]]; then
-    # Ensure cleaner boot logs
-    if ! grep -q "splash" /etc/default/grub; then
-      sudo sed -i 's/^GRUB_CMDLINE_LINUX_DEFAULT="\(.*\)"/GRUB_CMDLINE_LINUX_DEFAULT="\1 quiet splash loglevel=3 rd.udev.log_level=3 vt.global_cursor_default=0 mce=dont_log_ce"/' /etc/default/grub
-    fi
+    # Ensure cleaner boot logs (always enforce missing params)
+    current_cmdline=$(grep '^GRUB_CMDLINE_LINUX_DEFAULT=' /etc/default/grub | sed -E 's/^GRUB_CMDLINE_LINUX_DEFAULT="(.*)"/\1/' || true)
+    # Force a quiet Plymouth→greeter transition (no status text flash)
+    for arg in quiet splash plymouth.nolog loglevel=3 rd.udev.log_level=3 rd.systemd.show_status=false systemd.show_status=false vt.global_cursor_default=0 console=tty1 mce=dont_log_ce; do
+      [[ " $current_cmdline " == *" $arg "* ]] || current_cmdline+=" $arg"
+    done
+    current_cmdline=$(echo "$current_cmdline" | xargs)
+    sudo sed -i "s|^GRUB_CMDLINE_LINUX_DEFAULT=.*|GRUB_CMDLINE_LINUX_DEFAULT=\"$current_cmdline\"|" /etc/default/grub
     
     # Branding: Set GRUB Distributor to smplOS
     sudo sed -i 's/^GRUB_DISTRIBUTOR=.*/GRUB_DISTRIBUTOR="smplOS"/' /etc/default/grub
@@ -264,7 +269,8 @@ EOF
   sudo mkdir -p /etc/systemd/system/plymouth-quit.service.d/
   sudo tee /etc/systemd/system/plymouth-quit.service.d/wait-for-graphical.conf <<'EOF' >/dev/null
 [Unit]
-After=multi-user.target
+# Quit only after greeter/session handoff to avoid a text frame between splash and login
+After=greetd.service systemd-user-sessions.service
 
 [Service]
 ExecStart=
@@ -321,6 +327,50 @@ if command -v reflector &>/dev/null; then
     echo "    $(grep -c '^Server' /etc/pacman.d/mirrorlist) mirrors selected"
   else
     echo "    Reflector failed or timed out, using default mirrors"
+  fi
+fi
+
+# Surface hardware: install linux-surface kernel + drivers online.
+# The ISO ships with linux-zen only (keeps ISO size down). On Surface devices
+# we add the linux-surface kernel alongside it so touch/pen/wifi work properly.
+# Both kernels remain in GRUB — linux-surface as default, linux-zen as fallback.
+# Requires internet; if offline, the system still works with linux-zen (no touch/pen).
+# Runs AFTER mirrorlist is established so pacman can resolve dependencies.
+if [[ "$(cat /sys/devices/virtual/dmi/id/sys_vendor 2>/dev/null)" == "Microsoft Corporation" ]] \
+  && [[ "$(cat /sys/devices/virtual/dmi/id/product_name 2>/dev/null)" == Surface* ]]; then
+  echo "==> Surface device detected, setting up Surface-optimized kernel..."
+
+  # Always configure the linux-surface repo + key, even if we can't install
+  # right now. This way the user can install later with just `pacman -Sy`.
+  if ! grep -q '^\[linux-surface\]' /etc/pacman.conf; then
+    curl -s https://raw.githubusercontent.com/linux-surface/linux-surface/master/pkg/keys/surface.asc \
+      | sudo pacman-key --add - 2>/dev/null || true
+    sudo pacman-key --lsign-key 56C464BAAC421453 2>/dev/null || true
+    echo -e '\n[linux-surface]\nServer = https://pkg.surfacelinux.com/arch/' \
+      | sudo tee -a /etc/pacman.conf > /dev/null
+  fi
+
+  if curl -sf --max-time 10 --head https://pkg.surfacelinux.com >/dev/null 2>&1; then
+    # Install Surface kernel + drivers (keeps linux-zen as fallback)
+    if sudo pacman --noconfirm -Sy linux-surface linux-surface-headers iptsd linux-firmware-marvell; then
+      # Enable touch/pen input daemon
+      chrootable_systemctl_enable iptsd || echo "    WARNING: failed to enable iptsd service"
+      # Rebuild GRUB config so linux-surface appears in the boot menu.
+      # Set GRUB_DEFAULT=saved so we can make linux-surface the default
+      # regardless of version-sort ordering.
+      if [[ -f /boot/grub/grub.cfg ]]; then
+        sudo sed -i 's/^GRUB_DEFAULT=.*/GRUB_DEFAULT=saved/' /etc/default/grub 2>/dev/null || true
+        sudo grub-mkconfig -o /boot/grub/grub.cfg || echo "    WARNING: grub-mkconfig failed"
+        # Set the default to the first linux-surface entry
+        sudo grub-set-default "$(grep -m1 'menuentry.*linux-surface' /boot/grub/grub.cfg | sed "s/menuentry '\\([^']*\\)'.*/\\1/")" 2>/dev/null || true
+      fi
+      echo "    Surface kernel installed successfully (linux-zen kept as fallback)"
+    else
+      echo "    WARNING: Surface package install failed, continuing with linux-zen"
+    fi
+  else
+    echo "    No internet -- skipping Surface kernel install (linux-zen still works)"
+    echo "    Run after connecting: sudo pacman -Sy linux-surface linux-surface-headers iptsd linux-firmware-marvell"
   fi
 fi
 
