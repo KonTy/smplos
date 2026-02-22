@@ -39,14 +39,9 @@ release/*.fd
 release/OVMF_VARS.fd
 release/vmshare/
 
-# ── ISO build outputs ──────────────────────────────────────
-src/iso/prebuilt/
-src/iso/pacman-cache/
-src/iso/offline-repo/*.pkg.tar.*
-src/iso/offline-repo/*.db
-src/iso/offline-repo/*.db.tar.*
-src/iso/offline-repo/*.files
-src/iso/offline-repo/*.files.tar.*
+# ── Build outputs (written outside src/ to keep source tree clean) ────────
+build/prebuilt/
+build/target/
 *.iso
 
 # ── Caches ──────────────────────────────────────────────────

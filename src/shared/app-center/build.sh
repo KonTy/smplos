@@ -9,6 +9,12 @@ set -euo pipefail
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 cd "$SCRIPT_DIR"
 
+# Redirect cargo output outside the source tree so src/ stays clean.
+# PROJECT_ROOT is 3 levels up: app-center/ -> shared/ -> src/ -> project root
+PROJECT_ROOT="$(cd "$SCRIPT_DIR/../../.." && pwd)"
+export CARGO_TARGET_DIR="$PROJECT_ROOT/build/target"
+mkdir -p "$CARGO_TARGET_DIR"
+
 if ! command -v pacman >/dev/null 2>&1; then
   echo "Error: this script is intended for Arch Linux (pacman not found)." >&2
   exit 1
@@ -62,7 +68,7 @@ install_missing_pkgs "runtime dependencies" "${RUNTIME_PKGS[@]}"
 echo "==> Building app-center (release)..."
 cargo build --release
 
-BIN_PATH="$SCRIPT_DIR/target/release/app-center"
+BIN_PATH="$CARGO_TARGET_DIR/release/app-center"
 if [[ ! -x "$BIN_PATH" ]]; then
   echo "Error: build finished but binary not found at $BIN_PATH" >&2
   exit 1

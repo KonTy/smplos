@@ -175,22 +175,59 @@ smplOS separates shared infrastructure from compositor-specific config. The goal
 
 ```
 src/
-  shared/              Everything here works on ALL compositors
-    bin/               User-facing scripts (installed to /usr/local/bin/)
-    eww/               EWW bar and widgets (GTK3 - works on X11 + Wayland)
-    configs/smplos/    Cross-compositor configs (bindings.conf, branding)
-    themes/            14 themes with templates for all apps
-    installer/         OS installer
-    start-menu/        Start menu launcher (Rust + Slint)
-    app-center/        App center for installing/managing apps (Rust + Slint)
-    webapp-center/     Web app manager (Rust + Slint)
+  build-iso.sh              Entry point — detects Docker, launches builder
+  bootstrap.sh              One-shot host bootstrap (installs Docker if absent)
+  generate-theme-configs.sh Re-generates pre-baked theme configs from colors.toml templates
+
+  shared/                   Everything here works on ALL compositors
+    bin/                    User-facing scripts (installed to /usr/local/bin/)
+    eww/                    EWW bar and widgets (GTK3 — works on X11 + Wayland)
+    configs/
+      smplos/               Cross-compositor configs (bindings.conf, messengers.conf, branding)
+      <app>/                Per-app default configs (btop, dunst, fish, foot, nvim, …)
+    themes/                 14 themes — each a self-contained directory with pre-baked configs
+    icons/                  SVG status icon templates (baked with accent colors by theme-set)
+    applications/           Shared web-app .desktop entries and hicolor icons
+    skel/                   Default user home skeleton (copied to /etc/skel in the ISO)
+    system/                 System-level files (os-release, …)
+    start-menu/             Start menu launcher (Rust + Slint)
+    app-center/             App center — install/manage packages (Rust + Slint)
+    notif-center/           Notification center — dunst history viewer (Rust + Slint)
+    disp-center/            Display manager — monitor layout/resolution (Rust + Slint)
+    kb-center/              Keyboard manager — layouts, repeat rate (Rust + Slint)
+    webapp-center/          Web app manager — sandboxed browser shortcuts (Rust + Slint)
+    packages.txt            Shared package list (all compositors)
+    packages-aur.txt        AUR packages (prebuilt, injected into offline mirror)
+    packages-flatpak.txt    Flatpak apps (installed on first boot)
+    packages-appimage.txt   AppImages (bundled into the ISO)
+
   compositors/
-    hyprland/          Hyprland-specific config (hypr/, st-wl terminal)
-    dwm/               DWM-specific config (st terminal, future)
-  editions/            Edition-specific package lists and post-install scripts
-  builder/             ISO build pipeline
-  iso/                 ISO resources (boot entries, offline repo)
-release/               VM testing tools (dev-push, test-iso, QEMU scripts)
+    hyprland/               Hyprland-specific config
+      hypr/                 hyprland.conf (sources shared bindings.conf)
+      configs/              Hyprland-only app configs (hyprlock, hyprpaper, …)
+      st/                   st-wl patched terminal (config.def.h, patches.def.h)
+      packages.txt          Wayland-specific packages
+      postinstall.sh        Hyprland post-install steps
+    dwm/                    DWM-specific config (X11, planned)
+      st/                   st patched terminal
+      packages.txt          X11-specific packages
+      postinstall.sh        DWM post-install steps
+
+  editions/                 Optional edition overlays (stack on top of base)
+    lite/                   Lite edition — reduced package set
+    productivity/           Productivity — Logseq, LibreOffice, KeePassXC
+    creators/               Creators — OBS, Kdenlive, GIMP
+    communication/          Communication — Discord, Signal, Slack
+    development/            Development — VSCode, LazyVim, lazygit
+    ai/                     AI — Ollama, open-webui
+
+  installer/                smplOS interactive installer (smplos-install)
+  builder/                  ISO build pipeline (runs inside Docker/Podman)
+  custom-pkgbuilds/         In-tree PKGBUILDs for packages not in AUR
+
+release/                    VM testing tools (dev-push.sh, dev-apply.sh, test-iso.sh, QEMU scripts)
+build/
+  prebuilt/                 Pre-compiled AUR packages (.pkg.tar.zst) bundled into the ISO
 ```
 
 ## Design Principles
@@ -315,7 +352,7 @@ Terminal auto-detection makes sure it works regardless of which terminal is inst
 
 ## Building
 
-The build system is designed to work on **first run, on any Linux distro**. It runs inside a Docker container for reproducibility - your host system only needs Docker.
+The build system is designed to work on **first run, on any Linux distro**. It runs inside an Arch Linux container for reproducibility. The only host requirement is a container runtime — **Podman** (preferred, daemonless) or **Docker**.
 
 ### Quick Start
 
@@ -327,23 +364,22 @@ This produces a bootable Arch Linux ISO in `release/`. First build takes ~15-20 
 
 ### Prerequisites
 
-The only hard requirement is **Docker**. If Docker isn't installed, the build script will detect your distro and offer to install it for you:
+**Podman** is the preferred container runtime — it's daemonless and needs no background service. **Docker** works too and is auto-detected as a fallback.
+
+If neither is installed, the build script will offer to install Podman automatically:
 
 ```
-[WARN] Docker not found
-Install Docker automatically? [Y/n]
+[WARN] No container runtime found (podman or docker)
+Install Podman automatically? [Y/n]
 ```
 
-If you prefer to install Docker yourself:
+To install Podman manually:
 
 <details>
 <summary><b>Arch / EndeavourOS / Manjaro / Garuda / CachyOS</b></summary>
 
 ```bash
-sudo pacman -S --needed docker
-sudo systemctl enable --now docker
-sudo usermod -aG docker $USER
-# Log out and back in for group to take effect
+sudo pacman -S --needed podman
 ```
 </details>
 
@@ -351,27 +387,7 @@ sudo usermod -aG docker $USER
 <summary><b>Ubuntu / Debian / Pop!_OS / Linux Mint / Zorin</b></summary>
 
 ```bash
-# Install prerequisites
-sudo apt-get update
-sudo apt-get install -y ca-certificates curl gnupg
-
-# Add Docker GPG key
-sudo install -m 0755 -d /etc/apt/keyrings
-curl -fsSL https://download.docker.com/linux/ubuntu/gpg \
-    | sudo gpg --dearmor -o /etc/apt/keyrings/docker.gpg
-sudo chmod a+r /etc/apt/keyrings/docker.gpg
-
-# Add Docker repo (use "ubuntu" or "debian" depending on your base)
-echo "deb [arch=$(dpkg --print-architecture) signed-by=/etc/apt/keyrings/docker.gpg] \
-    https://download.docker.com/linux/ubuntu \
-    $(. /etc/os-release && echo "$VERSION_CODENAME") stable" \
-    | sudo tee /etc/apt/sources.list.d/docker.list > /dev/null
-
-# Install
-sudo apt-get update
-sudo apt-get install -y docker-ce docker-ce-cli containerd.io
-sudo systemctl enable --now docker
-sudo usermod -aG docker $USER
+sudo apt-get update && sudo apt-get install -y podman
 ```
 </details>
 
@@ -379,9 +395,7 @@ sudo usermod -aG docker $USER
 <summary><b>Fedora / Nobara</b></summary>
 
 ```bash
-sudo dnf install -y docker
-sudo systemctl enable --now docker
-sudo usermod -aG docker $USER
+sudo dnf install -y podman
 ```
 </details>
 
@@ -389,9 +403,7 @@ sudo usermod -aG docker $USER
 <summary><b>openSUSE</b></summary>
 
 ```bash
-sudo zypper install -y docker
-sudo systemctl enable --now docker
-sudo usermod -aG docker $USER
+sudo zypper install -y podman
 ```
 </details>
 
@@ -399,29 +411,28 @@ sudo usermod -aG docker $USER
 <summary><b>Void Linux</b></summary>
 
 ```bash
-sudo xbps-install -y docker
-sudo ln -s /etc/sv/docker /var/service/
-sudo usermod -aG docker $USER
+sudo xbps-install -y podman
 ```
 </details>
 
-After installing Docker, **log out and back in** so the docker group takes effect. If you skip this, the build script will automatically fall back to `sudo docker`.
+> **No group setup needed.** The build script runs `sudo podman` automatically — `mkarchiso` requires real root for loop devices and mounts, so there's no rootless option regardless of runtime.
 
 You also need **~10 GB of free disk space**. The script checks this and warns you if you're low.
 
 ### Build Options
 
 ```
-Usage: build-iso.sh [OPTIONS]
+Usage: build-iso.sh [EDITIONS...] [OPTIONS]
 
 Editions (stackable):
-    -p, --productivity      Add Productivity edition (Logseq, LibreOffice, KeePassXC)
-    -c, --creators          Add Creators edition (OBS, Kdenlive, GIMP)
-    -m, --communication     Add Communication edition (Discord, Signal, Slack)
-    -d, --development       Add Development edition (VSCode, LazyVim, lazygit)
-    -a, --ai                Add AI edition (Ollama, open-webui)
+    -p, --productivity      Office & workflow (Logseq, LibreOffice, KeePassXC)
+    -c, --creators          Design & media (OBS, Kdenlive, GIMP)
+    -m, --communication     Chat & calls (Discord, Signal, Slack)
+    -d, --development       Developer tools (VSCode, LazyVim, lazygit)
+    -a, --ai                AI tools (Ollama, open-webui)
+    --all                   All editions (equivalent to -p -c -m -d -a)
 
-General:
+Options:
     --compositor NAME       Compositor to build (hyprland, dwm) [default: hyprland]
     -r, --release           Release build: max xz compression (slow, smallest ISO)
     -n, --no-cache          Force fresh package downloads
@@ -441,14 +452,14 @@ General:
 # Productivity + Development
 ./build-iso.sh -p -d
 
-# Stack everything
-./build-iso.sh -p -d -c -m -a
+# All editions
+./build-iso.sh --all
 
-# Fast iteration build (skip AUR packages like EWW that take ages to compile)
+# Fast iteration (skip AUR packages like EWW that take ages to compile)
 ./build-iso.sh --skip-aur
 
 # Release build with max compression
-./build-iso.sh -p -d --release
+./build-iso.sh --all --release
 
 # Full verbose output for debugging
 ./build-iso.sh -v
@@ -456,12 +467,12 @@ General:
 
 ### What the Build Does
 
-1. **Checks prerequisites** - detects your distro, ensures Docker is installed and running, checks disk space.
-2. **Builds AUR packages** (unless `--skip-aur`) - compiles packages like EWW in a temporary container. Results are cached in `src/iso/prebuilt/` so they only build once.
+1. **Checks prerequisites** - detects your distro, ensures Podman (or Docker) is installed, checks disk space, pre-authenticates `sudo`.
+2. **Builds AUR packages** (unless `--skip-aur`) - compiles packages like EWW in a temporary container. Results are cached in `build/prebuilt/` so they only build once.
 3. **Pulls `archlinux:latest`** - the build runs in a fresh Arch container for reproducibility.
-4. **Downloads packages** - uses `pacman -Syw` to download all packages into a local mirror. On Arch-based hosts, your system's pacman cache is mounted read-only for instant hits.
+4. **Downloads packages** - pacman downloads all packages into a dated local mirror. On Arch-based hosts, your system's pacman cache is mounted read-only for instant hits.
 5. **Builds the ISO** - copies configs, themes, scripts, and the offline package mirror into an Arch ISO profile, then runs `mkarchiso`.
-6. **Outputs** - the final `.iso` lands in `release/`.
+6. **Outputs** - the final `.iso` lands in `release/`. The full build log is saved to `.cache/logs/build-TIMESTAMP.log`.
 
 ### Caching
 
@@ -475,11 +486,12 @@ Builds use a **dated cache** (`build_YYYY-MM-DD/`) under `.cache/`. Same-day reb
 
 | Problem | Solution |
 |---------|----------|
-| `permission denied` from Docker | Run `sudo usermod -aG docker $USER`, then log out and back in |
-| DNS errors inside container | The build script passes `--dns 1.1.1.1 --dns 8.8.8.8` to work around systemd-resolved. If you still get DNS errors, check your firewall. |
-| `no space left on device` | Need ~10 GB free. Also run `docker system prune` to reclaim Docker disk space. |
-| AUR build fails | Try `--skip-aur` to skip it. Pre-built AUR packages are cached in `src/iso/prebuilt/`. |
-| Slow builds | First build downloads ~2 GB of packages. After that, the cache makes rebuilds much faster. On Arch hosts, your system pacman cache is reused automatically. |
+| `sudo` password prompt mid-build | Expected — `mkarchiso` needs real root for loop devices and mounts. The script pre-authenticates `sudo` at startup and keeps it alive throughout the build. |
+| DNS errors inside container | The build uses `--network=host`, so the container shares your host's network stack. If you still get DNS errors, check that your host can reach `archlinux.org` and that your firewall allows container traffic. |
+| `no space left on device` | Need ~10 GB free. Run `podman system prune` (or `docker system prune`) to reclaim container disk space. |
+| AUR build fails | Try `--skip-aur` to skip it. Pre-built AUR packages are cached in `build/prebuilt/` and reused on the next run. |
+| Slow builds | First build downloads ~2 GB of packages. After that, the dated cache makes same-day rebuilds much faster. On Arch hosts, your system pacman cache is reused automatically. |
+| Build log | All output is automatically saved to `.cache/logs/build-TIMESTAMP.log` for post-mortem inspection. |
 
 ### Development & Testing
 
