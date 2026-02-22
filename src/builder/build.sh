@@ -1502,6 +1502,27 @@ AUTOLOGIN
     echo "LANG=en_US.UTF-8" > "$airootfs/etc/locale.conf"
     echo "en_US.UTF-8 UTF-8" >> "$airootfs/etc/locale.gen"
 
+    # Boot log service: auto-saves dmesg + journal to Ventoy partition after boot
+    # Only activates when /dev/disk/by-label/Ventoy exists (i.e. booted from Ventoy USB)
+    cat > "$airootfs/etc/systemd/system/smplos-boot-log.service" << 'BOOTLOGSVC'
+[Unit]
+Description=Save boot log to Ventoy disk (smplOS debug)
+After=local-fs.target systemd-journald.service
+ConditionPathExists=/dev/disk/by-label/Ventoy
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/bin/smplos-boot-log
+StandardOutput=journal
+StandardError=journal
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target
+BOOTLOGSVC
+    ln -sf /etc/systemd/system/smplos-boot-log.service \
+        "$airootfs/etc/systemd/system/multi-user.target.wants/smplos-boot-log.service" 2>/dev/null || true
+
     # Enable systemd user units (app cache builder)
     local skel="$airootfs/etc/skel"
     local user_wants="$skel/.config/systemd/user/default.target.wants"
@@ -1619,6 +1640,43 @@ EOF
 done
 APPIMAGESETUP
     chmod +x "$airootfs/usr/local/bin/smplos-appimage-setup"
+
+    # Boot log helper: writes dmesg + journal to the Ventoy data partition
+    # Useful for diagnosing live-session boot failures (black screen, hangs, etc.)
+    # The matching systemd service is enabled in setup_services()
+    cat > "$airootfs/usr/local/bin/smplos-boot-log" << 'BOOTLOG'
+#!/bin/bash
+# smplos-boot-log: save boot logs to the Ventoy data partition for debugging.
+# The Ventoy data partition (label "Ventoy") is the exFAT/NTFS partition where
+# ISOs live. Logs appear in a smplos-boot-logs/ folder at its root.
+set -euo pipefail
+
+LOG_DIR="smplos-boot-logs"
+TIMESTAMP=$(date +%Y%m%d-%H%M%S)
+
+# Find Ventoy data partition by its well-known label
+VENTOY_DEV=$(blkid -L Ventoy 2>/dev/null || true)
+if [[ -z "$VENTOY_DEV" ]]; then
+    echo "smplos-boot-log: Ventoy partition not found (label 'Ventoy') — skipping"
+    exit 0
+fi
+
+MNT=$(mktemp -d /run/smplos-ventoy-XXXXXX)
+trap 'umount "$MNT" 2>/dev/null; rmdir "$MNT" 2>/dev/null' EXIT
+
+if ! mount -o rw,noatime "$VENTOY_DEV" "$MNT" 2>/dev/null; then
+    echo "smplos-boot-log: could not mount $VENTOY_DEV rw — is it write-protected?"
+    exit 1
+fi
+
+mkdir -p "$MNT/$LOG_DIR"
+dmesg > "$MNT/$LOG_DIR/dmesg-$TIMESTAMP.log"
+journalctl -b 0 --no-pager > "$MNT/$LOG_DIR/journal-$TIMESTAMP.log" 2>/dev/null || true
+sync
+
+echo "smplos-boot-log: logs saved → $LOG_DIR/dmesg-$TIMESTAMP.log + journal-$TIMESTAMP.log"
+BOOTLOG
+    chmod +x "$airootfs/usr/local/bin/smplos-boot-log"
 }
 
 ###############################################################################
@@ -1646,7 +1704,8 @@ sort-key 01
 linux    /%INSTALL_DIR%/boot/%ARCH%/vmlinuz-linux-zen
 initrd   /%INSTALL_DIR%/boot/%ARCH%/initramfs-linux-zen.img
 # Keep boot output silent and pinned to tty1 to avoid greetd/Plymouth handoff flash
-options  archisobasedir=%INSTALL_DIR% archisosearchuuid=%ARCHISO_UUID% quiet splash plymouth.nolog loglevel=3 rd.udev.log_level=3 rd.systemd.show_status=false systemd.show_status=false vt.global_cursor_default=0 console=tty1 mce=dont_log_ce
+# nouveau.modeset=0: prevents nouveau KMS crash on NVIDIA Ada Lovelace (RTX 40xx) cards; harmless on Intel/AMD
+options  archisobasedir=%INSTALL_DIR% archisosearchuuid=%ARCHISO_UUID% quiet splash plymouth.nolog loglevel=3 rd.udev.log_level=3 rd.systemd.show_status=false systemd.show_status=false vt.global_cursor_default=0 console=tty1 mce=dont_log_ce nouveau.modeset=0
 ENTRY1
 
     cat > "$PROFILE_DIR/efiboot/loader/entries/02-smplos-safe.conf" << 'ENTRY2'
@@ -1657,6 +1716,16 @@ initrd   /%INSTALL_DIR%/boot/%ARCH%/initramfs-linux.img
 options  archisobasedir=%INSTALL_DIR% archisosearchuuid=%ARCHISO_UUID% nomodeset mce=dont_log_ce
 ENTRY2
 
+    cat > "$PROFILE_DIR/efiboot/loader/entries/03-smplos-debug.conf" << 'ENTRY3'
+title    smplOS (Debug)
+sort-key 03
+linux    /%INSTALL_DIR%/boot/%ARCH%/vmlinuz-linux-zen
+initrd   /%INSTALL_DIR%/boot/%ARCH%/initramfs-linux-zen.img
+# Full verbose boot: shows all kernel/initramfs/systemd messages on screen
+# Select this entry to diagnose black-screen or hang failures
+options  archisobasedir=%INSTALL_DIR% archisosearchuuid=%ARCHISO_UUID% nouveau.modeset=0 rd.debug rd.udev.log_level=7 systemd.log_level=info earlyprintk=efi,keep mce=dont_log_ce
+ENTRY3
+
     # ── GRUB loopback.cfg for Ventoy / loopback booting ───────────────
     # When systemd-boot is the primary UEFI bootloader, mkarchiso still
     # copies grub/loopback.cfg to the ISO9660 for tools like Ventoy that
@@ -1666,7 +1735,8 @@ ENTRY2
 menuentry "smplOS" --class arch --class gnu-linux --class gnu --class os {
     set gfxpayload=keep
     # Keep boot output silent and pinned to tty1 to avoid greetd/Plymouth handoff flash
-    linux /%INSTALL_DIR%/boot/%ARCH%/vmlinuz-linux-zen archisobasedir=%INSTALL_DIR% archisosearchuuid=%ARCHISO_UUID% quiet splash plymouth.nolog loglevel=3 rd.udev.log_level=3 rd.systemd.show_status=false systemd.show_status=false vt.global_cursor_default=0 console=tty1 mce=dont_log_ce
+    # nouveau.modeset=0: prevents nouveau KMS crash on NVIDIA Ada Lovelace (RTX 40xx) cards; harmless on Intel/AMD
+    linux /%INSTALL_DIR%/boot/%ARCH%/vmlinuz-linux-zen archisobasedir=%INSTALL_DIR% archisosearchuuid=%ARCHISO_UUID% quiet splash plymouth.nolog loglevel=3 rd.udev.log_level=3 rd.systemd.show_status=false systemd.show_status=false vt.global_cursor_default=0 console=tty1 mce=dont_log_ce nouveau.modeset=0
     initrd /%INSTALL_DIR%/boot/%ARCH%/initramfs-linux-zen.img
 }
 
@@ -1674,6 +1744,14 @@ menuentry "smplOS (Safe Mode)" --class arch --class gnu-linux --class gnu --clas
     set gfxpayload=keep
     linux /%INSTALL_DIR%/boot/%ARCH%/vmlinuz-linux archisobasedir=%INSTALL_DIR% archisosearchuuid=%ARCHISO_UUID% nomodeset mce=dont_log_ce
     initrd /%INSTALL_DIR%/boot/%ARCH%/initramfs-linux.img
+}
+
+menuentry "smplOS (Debug)" --class arch --class gnu-linux --class gnu --class os {
+    set gfxpayload=keep
+    # Full verbose boot: shows all kernel/initramfs/systemd messages on screen
+    # Select this entry to diagnose black-screen or hang failures
+    linux /%INSTALL_DIR%/boot/%ARCH%/vmlinuz-linux-zen archisobasedir=%INSTALL_DIR% archisosearchuuid=%ARCHISO_UUID% nouveau.modeset=0 rd.debug rd.udev.log_level=7 systemd.log_level=info earlyprintk=efi,keep mce=dont_log_ce
+    initrd /%INSTALL_DIR%/boot/%ARCH%/initramfs-linux-zen.img
 }
 LOOPBACKCFG
 
@@ -1695,7 +1773,7 @@ SYSLINUXCFG
 
     cat > "$PROFILE_DIR/syslinux/archiso_sys.cfg" << 'ARCHISOSYS'
 DEFAULT arch
-PROMPT 0
+PROMPT 1
 TIMEOUT 50
 
 UI vesamenu.c32
@@ -1706,13 +1784,21 @@ LABEL arch
     LINUX /%INSTALL_DIR%/boot/x86_64/vmlinuz-linux-zen
     INITRD /%INSTALL_DIR%/boot/x86_64/initramfs-linux-zen.img
     # Keep boot output silent and pinned to tty1 to avoid greetd/Plymouth handoff flash
-    APPEND archisobasedir=%INSTALL_DIR% archisosearchuuid=%ARCHISO_UUID% quiet splash plymouth.nolog loglevel=3 rd.udev.log_level=3 rd.systemd.show_status=false systemd.show_status=false vt.global_cursor_default=0 console=tty1 mce=dont_log_ce
+    # nouveau.modeset=0: prevents nouveau KMS crash on NVIDIA Ada Lovelace (RTX 40xx) cards; harmless on Intel/AMD
+    APPEND archisobasedir=%INSTALL_DIR% archisosearchuuid=%ARCHISO_UUID% quiet splash plymouth.nolog loglevel=3 rd.udev.log_level=3 rd.systemd.show_status=false systemd.show_status=false vt.global_cursor_default=0 console=tty1 mce=dont_log_ce nouveau.modeset=0
 
 LABEL arch_safe
     MENU LABEL smplOS (Safe Mode)
     LINUX /%INSTALL_DIR%/boot/x86_64/vmlinuz-linux
     INITRD /%INSTALL_DIR%/boot/x86_64/initramfs-linux.img
     APPEND archisobasedir=%INSTALL_DIR% archisosearchuuid=%ARCHISO_UUID% nomodeset mce=dont_log_ce
+
+LABEL arch_debug
+    MENU LABEL smplOS (Debug)
+    LINUX /%INSTALL_DIR%/boot/x86_64/vmlinuz-linux-zen
+    INITRD /%INSTALL_DIR%/boot/x86_64/initramfs-linux-zen.img
+    # Full verbose boot: shows all kernel/initramfs/systemd messages on screen
+    APPEND archisobasedir=%INSTALL_DIR% archisosearchuuid=%ARCHISO_UUID% nouveau.modeset=0 rd.debug rd.udev.log_level=7 systemd.log_level=info earlyprintk=efi,keep mce=dont_log_ce
 ARCHISOSYS
 
     log_info "Boot configuration updated"

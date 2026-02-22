@@ -14,6 +14,12 @@ LOG_DIR="$PROJECT_ROOT/.cache/logs"
 mkdir -p "$LOG_DIR"
 BUILD_LOG="$LOG_DIR/build-$(date +%Y%m%d-%H%M%S).log"
 
+# Tee all output (stdout + stderr) to the log file AND the terminal for the
+# entire script lifetime.  Using exec here avoids the external pipe approach
+# (./build-iso.sh | tee ...) which gets killed by SIGINT when you run any
+# monitoring command in the same terminal session.
+exec > >(tee -a "$BUILD_LOG") 2>&1
+
 # Colors
 RED='\033[0;31m'; GREEN='\033[0;32m'; YELLOW='\033[1;33m'
 BLUE='\033[0;34m'; BOLD='\033[1m'; NC='\033[0m'
@@ -215,7 +221,7 @@ check_prerequisites() {
 ###############################################################################
 
 build_missing_aur_packages() {
-    local prebuilt_dir="$SCRIPT_DIR/iso/prebuilt"
+    local prebuilt_dir="$PROJECT_ROOT/build/prebuilt"
     mkdir -p "$prebuilt_dir"
 
     # Collect AUR package names from all package lists
@@ -349,7 +355,7 @@ run_build() {
             | sort | head -n -3 | xargs -r rm -rf
     fi
 
-    local prebuilt_dir="$SCRIPT_DIR/iso/prebuilt"
+    local prebuilt_dir="$PROJECT_ROOT/build/prebuilt"
 
     local run_args=(
         --rm --privileged
