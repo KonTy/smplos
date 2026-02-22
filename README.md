@@ -224,7 +224,6 @@ src/
   installer/                smplOS interactive installer (smplos-install)
   builder/                  ISO build pipeline (runs inside Docker/Podman)
   custom-pkgbuilds/         In-tree PKGBUILDs for packages not in AUR
-  iso/                      ISO resources (offline repo metadata, QEMU boot script)
 
 release/                    VM testing tools (dev-push.sh, dev-apply.sh, test-iso.sh, QEMU scripts)
 build/
