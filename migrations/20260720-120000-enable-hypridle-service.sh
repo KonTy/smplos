@@ -32,19 +32,45 @@ if [[ ! -f "$UNIT_SRC" ]]; then
     exit 0
 fi
 
+# ── Also patch the user's Hyprland Lua autostart to stop it from
+#    re-spawning a bare hypridle at every session start.
+#
+# Hyprland is Lua-configured — hyprland.lua sources autostart.lua for the
+# `hyprland.start` event. Older versions of autostart.lua included
+# `hl.exec_cmd("hypridle")`, which fires a BARE hypridle from every session
+# regardless of what autostart.conf says (the .conf file is only for
+# cross-compositor sharing / reference; the .lua is what actually runs).
+# We updated sync_hypr_configs to overwrite autostart.lua too, but this
+# migration idempotently patches user files that were installed before
+# that sync began carrying the fix, and also handles the case where the
+# user has customised their autostart.lua and we shouldn't blow it away.
+for f in "$HOME/.config/hypr/autostart.lua"; do
+    [[ -f "$f" ]] || continue
+    if grep -qE '^\s*hl\.exec_cmd\("hypridle"\)' "$f"; then
+        bak="$f.pre-hypridle-fix.$(date +%s)"
+        cp -f "$f" "$bak" 2>/dev/null || continue
+        # Comment out the line rather than delete, so a future user reading
+        # the file can see what was there and why.
+        sed -i -E 's|^(\s*)(hl\.exec_cmd\("hypridle"\))|\1-- \2  -- disabled: managed by hypridle.service (see .conf note)|' "$f"
+        echo "  patched $f to stop respawning bare hypridle (backup $bak)"
+    fi
+done
+
 # Kill any bare `hypridle` process that came from the OLD
-# `exec-once = hypridle` line in autostart.conf. Same-release sync_hypr_configs
-# removes that line from the file, but the running Hyprland session already
-# spawned the daemon at session start, so it survives until logout. Leaving it
-# alive means the systemd-managed instance and the exec-once instance both
-# respond to logind Lock/Sleep signals, doubling every after_sleep_cmd. Kill
-# only bare-name matches so we don't touch the /usr/bin/hypridle from systemd.
+# `hl.exec_cmd("hypridle")` line in autostart.lua (or the equivalent
+# `exec-once = hypridle` in autostart.conf that pre-dates the Lua migration).
+# Same-release sync_hypr_configs removes that line from both files, but the
+# running Hyprland session already spawned the daemon at session start, so
+# it survives until logout. Leaving it alive means the systemd-managed
+# instance and the exec-once instance both respond to logind Lock/Sleep
+# signals, doubling every after_sleep_cmd. Kill only bare-name matches so
+# we don't touch the /usr/bin/hypridle from systemd.
 if pgrep -x hypridle >/dev/null 2>&1; then
     # -f matches command line; pgrep -x on the bare name catches the exec-once
     # invocation (argv[0] = "hypridle") without hitting the fullpath one.
     pkill -x hypridle 2>/dev/null || true
     sleep 0.3
-    echo "  killed stale bare hypridle (was likely from exec-once)"
+    echo "  killed stale bare hypridle (was likely from Hyprland exec-once)"
 fi
 
 # Check if already enabled (idempotent guard)

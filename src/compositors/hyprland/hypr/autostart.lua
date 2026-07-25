@@ -3,7 +3,13 @@
 
 hl.on("hyprland.start", function()
     -- Core services
-    hl.exec_cmd("hypridle")
+    -- NOTE: hypridle is now managed by the packaged systemd user unit
+    -- (hypridle.service, enabled via /etc/skel + migration). Launching it
+    -- here as well spawns a second BARE hypridle from every session start;
+    -- both fight over logind Lock/Sleep signals, and the bare one loads
+    -- whatever config was on disk at boot time so Settings-driven changes
+    -- silently no-op until the next reboot. Never uncomment.
+    -- hl.exec_cmd("hypridle")
     hl.exec_cmd("dunst")
 
     -- Sync saved keyboard layouts to compositor (before EWW bar starts)
