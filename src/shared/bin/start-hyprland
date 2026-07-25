@@ -16,6 +16,16 @@
 # are completely ignored. VM hardware-cursor workaround is now handled via
 # `cursor:no_hardware_cursors = 1` in looknfeel.conf.
 
+# Sanity-check ~/.config/hypr/monitors.conf BEFORE Hyprland reads it.
+# Prevents boot-to-black-screen if a previous session's screen-recover
+# (older buggy revisions) left monitors.conf with every monitor set to
+# `disable`. Cheap, silent no-op when the file is fine. Never fatal — if
+# monitors-guard itself explodes we still launch Hyprland; the alternative
+# is refusing to boot the compositor which is strictly worse.
+if command -v monitors-guard >/dev/null 2>&1; then
+    monitors-guard 2>/dev/null || true
+fi
+
 # exec replaces this process image in the same PID, so greetd keeps tracking
 # the correct PID and env vars above are inherited by the child Hyprland.
 if [[ -x /usr/bin/start-hyprland ]]; then

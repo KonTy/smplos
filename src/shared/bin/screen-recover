@@ -1,39 +1,60 @@
 #!/bin/bash
 # smplOS Emergency Screen Recovery
 #
-# Blind-typable via `Ctrl+Alt+D` binding in emergency.conf. Purpose: when
-# the nvidia+Hyprland+hyprlock post-unlock black-screen bug bites, keyboard
-# input still routes to the invisible compositor — the user can hit this
-# shortcut without seeing anything and (hopefully) get the picture back
-# without a hard reboot.
+# Blind-typable via `Ctrl+Alt+D` binding in emergency.conf. Also fired
+# automatically by hypridle's `on-resume` on the DPMS listener.
 #
-# Recovery cascade (most aggressive last):
-#   1. DPMS off -> on via `hl.dsp.dpms(...)` — forces a CRTC power cycle.
-#      Usually enough. Empirically hyprctl reports "ok" even when the panel
-#      stays black; that's the nvidia bug we can't detect from here.
+# WHAT THIS DOES (post-Hyprland-0.56.0):
+#   1. `hl.dsp.dpms({state='off'})` then `on` — forces a CRTC power cycle.
 #   2. `hyprctl reload` — re-reads config, rebuilds monitor state.
-#   3. Second DPMS-on — belt-and-suspenders if the first one was a no-op.
-#   4. Full monitor disable + reload — the "nuclear" fallback. Disables
-#      every monitor via `hyprctl keyword monitor NAME, disable` and then
-#      re-issues `hyprctl reload`, which re-sources monitors.conf and
-#      re-enables them with their correct modes / positions / scales /
-#      transforms. This forces a fresh modeset+page-flip that the nvidia
-#      driver CAN'T silently drop the way it drops DPMS toggles. Adds a
-#      brief second black flash but is the only chain we've seen recover
-#      when steps 1-3 return "ok" but the panel stays dark.
+#   3. Second `dpms on` — belt-and-suspenders if the first was a no-op.
 #
-# Every step is logged to ~/.cache/smplos/screen-recover.log so we can see
-# what worked after a hard reboot. Non-fatal on every command.
+# HISTORY (why this is now much smaller):
+#   Older revisions had a "step 4" that rewrote ~/.config/hypr/monitors.conf
+#   with every monitor set to `disable`, ran `hyprctl reload`, then restored
+#   the original file. That was our workaround for the nvidia+Hyprland
+#   post-DPMS-wake bug on 0.55.x where DPMS toggles silently no-op'd.
+#
+#   Two things went badly wrong with step 4:
+#     * Race condition: two concurrent invocations (Ctrl+Alt+D pressed while
+#       hypridle's on-resume was already running) both backed up "current"
+#       state, but B's backup captured A's mid-swap DISABLED state. Result:
+#       monitors.conf permanently ended up disabled. Next boot: black screen.
+#     * Interrupt window: if the script died between "write disabled" and
+#       "restore original" (killed, session end, reboot during recovery),
+#       monitors.conf was left in the disabled state. Next boot: black screen.
+#   Both of those exact failures burned the user on 2026-07-24/25.
+#
+#   Hyprland 0.56.0 shipped the upstream fix for the underlying DPMS bug
+#   (compositor: fix monitor re-enabling on hotplug when dpms is off,
+#   PR #14818). Steps 1-3 alone should now bring the panel back reliably.
+#   If they don't, we'll add a SAFER escalation (with proper trap-based
+#   restoration and a `flock` lock) — but not until we know we need it.
+#
+# LOCKFILE:
+#   flock still protects steps 1-3 from concurrent runs, because two
+#   invocations racing through `hyprctl dispatch dpms off/on` back-to-back
+#   can leave the CRTC in a weird state.
 
 set +e
 
 LOG_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/smplos"
 mkdir -p "$LOG_DIR" 2>/dev/null
 LOG="$LOG_DIR/screen-recover.log"
+LOCK="$LOG_DIR/screen-recover.lock"
 if [[ -f "$LOG" ]] && [[ $(stat -c%s "$LOG" 2>/dev/null || echo 0) -gt 204800 ]]; then
     tail -c 102400 "$LOG" > "$LOG.tmp" && mv "$LOG.tmp" "$LOG"
 fi
 log() { printf '%s %s\n' "$(date '+%Y-%m-%d %H:%M:%S.%3N')" "$*" >> "$LOG"; }
+
+# Take a non-blocking lock. If another screen-recover is running, skip —
+# no point piling up DPMS toggles (and no point risking a race).
+exec 9>"$LOCK"
+if ! flock -n 9; then
+    log "=== screen-recover skipped (pid $$): another instance already running ==="
+    exit 0
+fi
+
 log "=== screen-recover invoked (pid $$) ==="
 
 if ! command -v hyprctl &>/dev/null; then
@@ -41,7 +62,7 @@ if ! command -v hyprctl &>/dev/null; then
     exit 1
 fi
 
-# Step 1: DPMS cycle via Lua dispatcher
+# Step 1: DPMS off -> on cycle via Lua dispatcher
 log "step 1: dpms off -> on (Lua)"
 hyprctl dispatch "hl.dsp.dpms({state='off'})" 2>>"$LOG"
 log "  dpms off -> $?"
@@ -60,54 +81,10 @@ sleep 0.3
 log "step 3: dpms on (retry)"
 hyprctl dispatch "hl.dsp.dpms({state='on'})" 2>>"$LOG"
 log "  dpms on -> $?"
-sleep 0.2
-
-# Step 4: monitor disable via monitors.conf swap + reload. The old
-# `hyprctl keyword monitor NAME, disable` form is REJECTED silently by
-# Hyprland 0.55.x's Lua parser ("keyword can't work with non-legacy
-# parsers. Use eval.") — hyprctl returned exit 0 while the compositor
-# printed the error only to its journal, so earlier revisions of this
-# script were doing nothing at all here despite the log saying "ok".
-#
-# What works with the Lua config: rewrite ~/.config/hypr/monitors.conf so
-# every `monitor = NAME, ...` line becomes `monitor = NAME, disable`,
-# then `hyprctl reload` (which re-runs monitors_loader.lua → hl.monitor()
-# for each entry). That fully disables each output at the compositor
-# level, forcing a real modeset. We then restore the original
-# monitors.conf and reload again to bring them back with their proper
-# modes / positions / scales / transforms.
-#
-# This IS the nuclear option — briefly kills the framebuffer entirely.
-# Also the only reliable way to force nvidia to accept a fresh page flip
-# when the DPMS toggle silently no-ops.
-log "step 4: monitors.conf disable + reload + restore"
-MONCONF="$HOME/.config/hypr/monitors.conf"
-if [[ -f "$MONCONF" ]]; then
-    MONBAK=$(mktemp -t monitors.conf.recovery.XXXXXX 2>/dev/null)
-    if [[ -n "$MONBAK" ]] && cp "$MONCONF" "$MONBAK" 2>/dev/null; then
-        # Replace each `monitor = NAME, ...` with `monitor = NAME, disable`.
-        # -E for POSIX-portable regex; only touches lines that already start
-        # with `monitor =` so comments/other content survive untouched.
-        sed -E 's|^(monitor[[:space:]]*=[[:space:]]*[^,]+),.*|\1, disable|' \
-            "$MONBAK" > "$MONCONF"
-        hyprctl reload 2>>"$LOG"
-        log "  reload (monitors disabled) -> $?"
-        sleep 0.5
-        # Restore original and reload again to re-enable with full spec
-        cp "$MONBAK" "$MONCONF" 2>/dev/null
-        hyprctl reload 2>>"$LOG"
-        log "  reload (monitors restored) -> $?"
-        rm -f "$MONBAK"
-    else
-        log "  could not back up monitors.conf — skipping monitor cycle"
-    fi
-else
-    log "  monitors.conf not present — skipping monitor cycle"
-fi
 
 # Nudge the user with a notification so they know a recovery ran (and, if
 # the screen is back, they see it). Non-fatal.
-notify-send "Screen Recovery" "Ran DPMS cycle + monitor disable/reload. Check ~/.cache/smplos/screen-recover.log for details." 2>/dev/null || true
+notify-send "Screen Recovery" "Ran DPMS off/on + reload cycle. Check ~/.cache/smplos/screen-recover.log for details." 2>/dev/null || true
 
 log "=== screen-recover done ==="
 exit 0

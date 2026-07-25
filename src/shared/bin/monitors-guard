@@ -1,0 +1,116 @@
+#!/bin/bash
+# smplOS Monitors Config Sanity Guard
+#
+# Runs from Hyprland autostart BEFORE the compositor picks up
+# monitors.conf. Prevents boot-to-black-screen when the file has been
+# corrupted (every `monitor = NAME, ...` line replaced with
+# `monitor = NAME, disable`).
+#
+# HOW WE GOT HERE:
+#   An older revision of screen-recover had a "step 4" that intentionally
+#   wrote a disabled version of monitors.conf, reloaded, then restored
+#   the original. That approach had two failure modes that could leave
+#   monitors.conf permanently disabled:
+#     * concurrent invocations racing on the file
+#     * script interruption (kill, session end, reboot) between
+#       "write disabled" and "restore original"
+#   Both bit the user on 2026-07-24/25 — boot straight into black
+#   screen, only recoverable by dropping to TTY and hand-editing.
+#
+#   screen-recover no longer does that (Hyprland 0.56.0 shipped the
+#   upstream fix so it isn't needed), but the corrupted file might
+#   still be around from an older run — and this guard is cheap
+#   insurance against any future bug that could produce the same state.
+#
+# WHAT IT DOES:
+#   1. If monitors.conf doesn't exist -> exit 0 (Hyprland will pick
+#      preferred defaults, safe).
+#   2. If monitors.conf has AT LEAST ONE real (non-disable) monitor
+#      line -> exit 0, everything's fine.
+#   3. If EVERY `monitor = ...` line is `disable` -> the file is
+#      corrupted. Roll back:
+#        a. Look for the most recent monitors.conf.bak-* backup.
+#        b. If found, restore it and log.
+#        c. If not found, delete monitors.conf entirely so Hyprland
+#           falls back to preferred defaults. Better a shuffled layout
+#           than a black screen.
+#      Log everything to ~/.cache/smplos/monitors-guard.log for
+#      post-mortem.
+#
+# Idempotent, always exits 0 so autostart isn't blocked.
+
+set +e
+
+CONF="$HOME/.config/hypr/monitors.conf"
+LOG_DIR="${XDG_CACHE_HOME:-$HOME/.cache}/smplos"
+mkdir -p "$LOG_DIR" 2>/dev/null
+LOG="$LOG_DIR/monitors-guard.log"
+log() { printf '%s %s\n' "$(date '+%Y-%m-%d %H:%M:%S.%3N')" "$*" >> "$LOG"; }
+
+# Cap log at 100KB
+if [[ -f "$LOG" ]] && [[ $(stat -c%s "$LOG" 2>/dev/null || echo 0) -gt 102400 ]]; then
+    tail -c 51200 "$LOG" > "$LOG.tmp" && mv "$LOG.tmp" "$LOG"
+fi
+
+[[ -f "$CONF" ]] || { log "no monitors.conf — Hyprland will use preferred defaults"; exit 0; }
+
+# Count total monitor lines vs disabled ones. Using awk (always exit 0)
+# instead of `grep -c ... || echo 0`, which double-emits when grep finds
+# zero matches (grep prints "0" AND exits 1, tripping the fallback).
+total=$(awk '/^[[:space:]]*monitor[[:space:]]*=/{c++} END{print c+0}' "$CONF" 2>/dev/null)
+disabled=$(awk '/^[[:space:]]*monitor[[:space:]]*=[[:space:]]*[^,]+,[[:space:]]*disable[[:space:]]*$/{c++} END{print c+0}' "$CONF" 2>/dev/null)
+total=${total:-0}
+disabled=${disabled:-0}
+
+if [[ "$total" -eq 0 ]]; then
+    log "monitors.conf has zero monitor lines — nothing to check"
+    exit 0
+fi
+
+if [[ "$total" -eq "$disabled" ]]; then
+    log "CORRUPT monitors.conf detected: $total/$total monitors set to 'disable'"
+    log "  file dump:"
+    sed 's/^/    /' "$CONF" >> "$LOG"
+
+    # Try the most recent user-side backup first, then our own
+    # last-known-good snapshot.
+    for cand in \
+        $(ls -1t "$HOME/.config/hypr/monitors.conf.bak-"* 2>/dev/null) \
+        "$HOME/.config/hypr/monitors.conf.last-known-good"; do
+        [[ -n "$cand" && -f "$cand" ]] || continue
+        # Sanity: don't restore an also-corrupt backup.
+        bak_total=$(awk '/^[[:space:]]*monitor[[:space:]]*=/{c++} END{print c+0}' "$cand" 2>/dev/null)
+        bak_disabled=$(awk '/^[[:space:]]*monitor[[:space:]]*=[[:space:]]*[^,]+,[[:space:]]*disable[[:space:]]*$/{c++} END{print c+0}' "$cand" 2>/dev/null)
+        bak_total=${bak_total:-0}
+        bak_disabled=${bak_disabled:-0}
+        if [[ "$bak_total" -gt 0 && "$bak_total" -ne "$bak_disabled" ]]; then
+            cp "$cand" "$CONF" && log "  restored from backup: $cand"
+            exit 0
+        else
+            log "  candidate $cand is also corrupt ($bak_disabled/$bak_total disabled), skipping"
+        fi
+    done
+
+    # No usable backup. Move the corrupt file out of the way and let
+    # Hyprland use preferred defaults. Preserves the corrupt file for
+    # forensics but doesn't let it break the login.
+    mv "$CONF" "$CONF.corrupt-$(date +%s)" 2>/dev/null \
+        && log "  no usable backup; moved corrupt file aside so Hyprland uses preferred defaults" \
+        || log "  no usable backup and could not move file — Hyprland will still boot to black"
+    exit 0
+fi
+
+# All good — some/all monitors are real entries.
+if [[ "$disabled" -gt 0 ]]; then
+    log "OK: $((total - disabled))/$total monitors active ($disabled disabled)"
+else
+    log "OK: all $total monitors active"
+fi
+
+# Snapshot this valid state as last-known-good so the next boot after a
+# corruption has something to restore from. Atomic write via temp+mv.
+LKG="$HOME/.config/hypr/monitors.conf.last-known-good"
+if cp "$CONF" "$LKG.tmp" 2>/dev/null && mv "$LKG.tmp" "$LKG" 2>/dev/null; then
+    log "  snapshotted -> $LKG"
+fi
+exit 0
