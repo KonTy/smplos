@@ -7,7 +7,13 @@ hl.config({
         kb_layout  = "us",
         kb_variant = "",
         kb_model   = "",
-        kb_options = "ctrl:nocaps",
+        -- ctrl:nocaps    Caps Lock -> Ctrl (already habitual for many)
+        -- altwin:menu_win  Menu key acts as an additional Super. Lets
+        --                  the right hand hit Super+Arrow one-handed
+        --                  (Menu key sits between right Alt and right
+        --                  Ctrl on most keyboards). Menu key otherwise
+        --                  goes almost entirely unused.
+        kb_options = "ctrl:nocaps,altwin:menu_win",
         kb_rules   = "evdev",
 
         -- Key repeat: 50 Hz (20ms interval), 300ms delay before repeat starts.
