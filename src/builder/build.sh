@@ -879,31 +879,31 @@ install_prebuilt_apps() {
         return
     fi
 
-    # ── st-wl / st terminal ──
-    local bin_name
-    if [[ "$COMPOSITOR" == "hyprland" ]]; then
-        bin_name="st-wl"
-    else
-        bin_name="st"
-    fi
+    # ── st-wl terminal ──
+    # As of 2026-07-26, the only st we can install is st-wl, fetched by
+    # fetch-st.sh from the smpl-os/st-smpl release. The binary, terminfo,
+    # desktop entry, and man page all live in $bin_dir (populated by
+    # fetch-st.sh). If a future non-hyprland compositor edition needs its
+    # own st variant, add a companion fetcher and branch on $COMPOSITOR here.
+    local bin_name="st-wl"
 
     if [[ -f "$bin_dir/$bin_name" ]]; then
         install -Dm755 "$bin_dir/$bin_name" "$airootfs/usr/local/bin/$bin_name"
         install -Dm755 "$bin_dir/$bin_name" "$airootfs/root/smplos/bin/$bin_name"
         log_info "$bin_name: installed"
 
-        # Install terminfo + desktop file from source tree
-        local st_src="$SRC_DIR/compositors/$COMPOSITOR/st"
-        if [[ -f "$st_src/${bin_name}.info" ]]; then
-            tic -sx "$st_src/${bin_name}.info" -o "$airootfs/usr/share/terminfo" 2>/dev/null || true
-        elif [[ -f "$st_src/st.info" ]]; then
-            tic -sx "$st_src/st.info" -o "$airootfs/usr/share/terminfo" 2>/dev/null || true
+        # Companion files come from the st-smpl release tag (see fetch-st.sh).
+        if [[ -f "$bin_dir/${bin_name}.info" ]]; then
+            tic -sx "$bin_dir/${bin_name}.info" -o "$airootfs/usr/share/terminfo" 2>/dev/null || true
         fi
-        if [[ -f "$st_src/${bin_name}.desktop" ]]; then
-            install -Dm644 "$st_src/${bin_name}.desktop" "$airootfs/usr/share/applications/${bin_name}.desktop"
+        if [[ -f "$bin_dir/${bin_name}.desktop" ]]; then
+            install -Dm644 "$bin_dir/${bin_name}.desktop" "$airootfs/usr/share/applications/${bin_name}.desktop"
+        fi
+        if [[ -f "$bin_dir/${bin_name}.1" ]]; then
+            install -Dm644 "$bin_dir/${bin_name}.1" "$airootfs/usr/share/man/man1/${bin_name}.1"
         fi
     else
-        log_warn "$bin_name: not found in $bin_dir"
+        log_warn "$bin_name: not found in $bin_dir (did fetch-st.sh run?)"
     fi
 
     # ── Rust apps ──

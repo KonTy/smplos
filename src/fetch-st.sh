@@ -88,7 +88,20 @@ fi
 [[ -f "$TMP/$ASSET" ]] || die "Downloaded asset not found at $TMP/$ASSET"
 install -m 755 "$TMP/$ASSET" "$OUT_BIN"
 
+# ── Fetch companion metadata from the release tag ────────────────────────────
+# The release publishes a single binary asset; terminfo/desktop/manpage live in
+# the source tree at the same tag. Grab them so the ISO builder has everything
+# it needs to install a proper st-wl (terminfo -> tic, desktop -> applications,
+# man page -> mandb) without falling back to a stale local copy.
+log "Fetching companion files (terminfo, desktop, man page) at $LATEST..."
+RAW_BASE="https://raw.githubusercontent.com/${REPO}/${LATEST}"
+for f in st-wl.info st-wl.desktop st-wl.1; do
+    curl -fsSL "$RAW_BASE/$f" -o "$BIN_OUTPUT/$f" \
+        || die "Failed to fetch $f from $RAW_BASE"
+done
+
 # ── Record installed version ──────────────────────────────────────────────────
 echo "$LATEST" > "$MARKER"
 
 log "st-wl $LATEST installed:  $(ls -lh "$OUT_BIN" | awk '{print $5}')  ($OUT_BIN)"
+log "Companion files:  st-wl.info, st-wl.desktop, st-wl.1  (in $BIN_OUTPUT/)"

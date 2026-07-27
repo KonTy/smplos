@@ -30,14 +30,6 @@ mkdir -p $ROOT/compositors/hyprland/{configs}
 [ ! -f $ROOT/compositors/hyprland/postinstall.sh ] && touch $ROOT/compositors/hyprland/postinstall.sh && chmod +x $ROOT/compositors/hyprland/postinstall.sh
 
 ###############################################
-# Compositor: DWM (placeholder for future)
-###############################################
-mkdir -p $ROOT/compositors/dwm/{configs}
-
-[ ! -f $ROOT/compositors/dwm/packages.txt ] && touch $ROOT/compositors/dwm/packages.txt
-[ ! -f $ROOT/compositors/dwm/postinstall.sh ] && touch $ROOT/compositors/dwm/postinstall.sh && chmod +x $ROOT/compositors/dwm/postinstall.sh
-
-###############################################
 # Editions
 ###############################################
 for edition in productivity creators communication development ai lite; do
