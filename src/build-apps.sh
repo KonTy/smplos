@@ -52,7 +52,14 @@ detect_runtime() {
 }
 
 # ── Parse arguments ──
-BUILD_ST=false
+# st-wl was removed from this script on 2026-07-26 — it is now fetched from
+# the smpl-os/st-smpl GitHub release via fetch-st.sh instead of being built
+# locally from an embedded subtree. The subtree that used to live at
+# src/compositors/hyprland/st/ silently drifted from the upstream st-smpl
+# repo (last touched 2026-03-23, missing the 2026-06-29 scroll-down fix) and
+# every ISO/local build clobbered the good binary. The "st"/"st-wl" arg is
+# accepted for backwards compatibility (just triggers fetch-st.sh, which
+# also runs unconditionally on every invocation).
 BUILD_MICRO=false
 BUILD_XR=false
 CLEAN_BUILD=false
@@ -60,10 +67,10 @@ CLEAN_BUILD=false
 for arg in "$@"; do
     case "$arg" in
         --clean) CLEAN_BUILD=true ;;
-        st|st-wl) BUILD_ST=true ;;
+        st|st-wl) ;;  # no-op — fetch-st.sh always runs; see header note
         micro) BUILD_MICRO=true ;;
         xr|xr-workspace) BUILD_XR=true ;;
-        all) BUILD_ST=true; BUILD_MICRO=true; BUILD_XR=true ;;
+        all) BUILD_MICRO=true; BUILD_XR=true ;;
         *) ;; # Individual app args ignored — workspace builds everything
     esac
 done
@@ -71,7 +78,7 @@ done
 # ── Main ──
 BIN_OUTPUT="$PROJECT_ROOT/.cache/app-binaries"
 BUILD_CACHE="$PROJECT_ROOT/.cache/build-cache"
-mkdir -p "$BIN_OUTPUT" "$BUILD_CACHE/cargo" "$BUILD_CACHE/st-build" "$BUILD_CACHE/micro-build"
+mkdir -p "$BIN_OUTPUT" "$BUILD_CACHE/cargo" "$BUILD_CACHE/micro-build"
 
 if [[ "$CLEAN_BUILD" == "true" ]]; then
     warn "Clean build requested — wiping build cache"
@@ -112,19 +119,13 @@ FETCH_FLAG=""
 [[ "$CLEAN_BUILD" == "true" ]] && FETCH_FLAG="--force"
 bash "$SCRIPT_DIR/fetch-apps.sh" $FETCH_FLAG
 
-# ── Staleness checks for container-built binaries (st-wl, micro) ─────────────
-if [[ "$CLEAN_BUILD" == "false" ]]; then
-    if [[ "$BUILD_ST" == "true" ]]; then
-        st_current=$(git_tree_hash "src/compositors/hyprland/st")
-        st_stored=$(cat "$BIN_OUTPUT/st-wl.built-at" 2>/dev/null || echo "")
-        if [[ -f "$BIN_OUTPUT/st-wl" && -n "$st_current" \
-              && "$st_current" == "$st_stored" ]] \
-           && git_tree_clean "src/compositors/hyprland/st"; then
-            log "st-wl: up to date"
-            BUILD_ST=false
-        fi
-    fi
+# ── Fetch st-wl from GitHub release (formerly built locally from subtree) ────
+# Single source of truth: st-smpl repo -> st-smpl.fetched-version. See
+# fetch-st.sh header for why the old subtree build was removed.
+bash "$SCRIPT_DIR/fetch-st.sh" $FETCH_FLAG
 
+# ── Staleness checks for container-built binaries (micro, xr-workspace) ──────
+if [[ "$CLEAN_BUILD" == "false" ]]; then
     # micro: the source lives in the micro/ sibling repo (separate git root).
     # We use the micro-patched binary's mtime or a stored hash for staleness.
     if [[ "$BUILD_MICRO" == "true" ]]; then
@@ -160,14 +161,16 @@ if [[ "$CLEAN_BUILD" == "false" ]]; then
     fi
 fi
 
-if [[ "$BUILD_ST" == "false" && "$BUILD_MICRO" == "false" && "$BUILD_XR" == "false" ]]; then
-    log "st-wl, micro and xr-workspace are up to date — container not needed"
+if [[ "$BUILD_MICRO" == "false" && "$BUILD_XR" == "false" ]]; then
+    log "micro and xr-workspace are up to date — container not needed"
     log "${BOLD}Binaries ready:${NC}"
     ls -lh "$BIN_OUTPUT/"
     exit 0
 fi
 
-# ── Container build for st-wl and micro ──────────────────────────────────────
+# ── Container build for micro and xr-workspace ──────────────────────────────
+#    (st-wl is fetched from GitHub release via fetch-st.sh above — no local
+#     compile from a subtree that inevitably drifts from the st-smpl repo.)
 detect_runtime
 
 # Build script that runs inside the container
@@ -179,7 +182,7 @@ SRC_DIR="/build/src"
 OUT_DIR="/build/out"
 CACHE_DIR="/build/cache"
 
-# Install build deps for st-wl and micro only (no Rust/cargo needed)
+# Install build deps for micro editor and xr-workspace only
 pacman -Sy --noconfirm --needed \
     base-devel cmake pkgconf rsync \
     fontconfig freetype2 harfbuzz imlib2 \
@@ -188,30 +191,6 @@ pacman -Sy --noconfirm --needed \
 
 # (xr-workspace shares these deps: wayland + wayland-protocols provide
 #  wayland-scanner; mesa provides EGL/GLES/GBM; cmake/pkgconf cover the rest.)
-
-# Build st-wl if requested
-if [[ "$BUILD_ST" == "true" ]]; then
-    echo "[build] Building st-wl..."
-    ST_SRC="$SRC_DIR/compositors/hyprland/st"
-    BUILD_DIR="$CACHE_DIR/st-build"
-    if [[ -f "$ST_SRC/st.c" ]]; then
-        # Sync source into persistent build dir so make sees file changes
-        mkdir -p "$BUILD_DIR"
-        cp -r "$ST_SRC/." "$BUILD_DIR/"
-        cd "$BUILD_DIR"
-        rm -f config.h patches.h  # always regenerate from .def.h
-        [[ "$CLEAN_BUILD" == "true" ]] && make clean
-        make -j"$(nproc)"
-        if [[ -f "$BUILD_DIR/st-wl" ]]; then
-            strip "$BUILD_DIR/st-wl"
-            cp "$BUILD_DIR/st-wl" "$OUT_DIR/st-wl"
-            echo "[build] st-wl: OK"
-        else
-            echo "[build] st-wl: FAILED"
-            exit 1
-        fi
-    fi
-fi
 
 # Build micro editor if requested
 if [[ "$BUILD_MICRO" == "true" ]]; then
@@ -302,12 +281,11 @@ if [[ "$BUILD_XR" == "true" && -n "$XR_REPO" ]]; then
     run_args+=(-v "$XR_REPO:/build/xr-src:ro")
 fi
 
-run_args+=(-e "BUILD_ST=$BUILD_ST")
 run_args+=(-e "BUILD_MICRO=$BUILD_MICRO")
 run_args+=(-e "BUILD_XR=$BUILD_XR")
 run_args+=(-e "CLEAN_BUILD=$CLEAN_BUILD")
 
-log "Building:${BUILD_ST:+ st-wl}${BUILD_MICRO:+ micro}${BUILD_XR:+ xr-workspace}${CLEAN_BUILD:+ (clean)}"
+log "Building:${BUILD_MICRO:+ micro}${BUILD_XR:+ xr-workspace}${CLEAN_BUILD:+ (clean)}"
 log "Container: archlinux:latest via ${CTR}"
 log "Cache:     $BUILD_CACHE/"
 log "Output:    $BIN_OUTPUT/"
@@ -323,11 +301,6 @@ if [[ $rc -ne 0 ]]; then
     die "Container build failed (exit $rc)"
 fi
 
-if [[ "$BUILD_ST" == "true" && -f "$BIN_OUTPUT/st-wl" ]]; then
-    if git_tree_clean "src/compositors/hyprland/st"; then
-        git_tree_hash "src/compositors/hyprland/st" > "$BIN_OUTPUT/st-wl.built-at"
-    fi
-fi
 if [[ "$BUILD_MICRO" == "true" && -f "$BIN_OUTPUT/micro" ]]; then
     MICRO_REPO="$PROJECT_ROOT/../micro"
     if [[ -d "$MICRO_REPO/.git" ]]; then

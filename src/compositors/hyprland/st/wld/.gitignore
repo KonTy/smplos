@@ -1,8 +1,0 @@
-*.o
-*.lo
-.*.sw*
-
-/.deps/
-/libwld.a
-/libwld.so*
-

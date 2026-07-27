@@ -1,1 +1,0 @@
-void newterm(const Arg *);

@@ -1,9 +1,0 @@
-config.h
-patches.h
-st-wl
-*.o
-*.tar.gz
-.deps/
-options
-xdg-*-protocol.*
-xdg-*-client-protocol.*
