@@ -1,0 +1,11 @@
+# makepkg build artifacts -- generated when running `makepkg` locally on
+# this PKGBUILD directly (e.g. to install on the current machine, or as a
+# quick smoke test before pushing changes). The ISO builder runs makepkg
+# inside an isolated container and never touches this directory, so these
+# files only appear during out-of-tree local builds and must never be
+# committed.
+src/
+pkg/
+*.pkg.tar.zst
+*.pkg.tar.xz
+*.log

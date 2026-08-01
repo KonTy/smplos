@@ -30,5 +30,11 @@ grafium-bin
 # Local AI dictation daemon (Whisper-based, fully offline speech-to-text)
 voxtype-bin
 
+# Mullvad VPN client (built from src/shared/pkgbuilds/mullvad-vpn-bin)
+# Repackaged from the upstream .deb on mullvad.net and verified against
+# Mullvad's PGP code-signing key -- avoids AUR maintainer trust chain.
+# Daemon is enabled at boot; kill-switch service is opt-in (see .install).
+mullvad-vpn-bin
+
 # Hyprland plugins/extras (optional)
 # hyprland-plugins-git

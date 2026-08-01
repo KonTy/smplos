@@ -1,0 +1,140 @@
+# Maintainer: smplOS <https://github.com/smpl-os>
+#
+# mullvad-vpn-bin -- Mullvad VPN client, repackaged from the upstream .deb.
+#
+# WHY NOT THE AUR?
+#   Given the 2025 AUR malware incidents, smplOS treats a VPN client as too
+#   sensitive to depend on any AUR maintainer's trust chain. This PKGBUILD
+#   pulls the .deb directly from mullvad.net and verifies it against
+#   Mullvad's PGP code-signing key (fingerprint pinned below), which is the
+#   same authentication chain Mullvad itself documents at
+#   https://mullvad.net/en/help/install-mullvad-app-linux
+#
+# HOW TO BUMP THE VERSION:
+#   1. Check https://mullvad.net/en/download/vpn/linux for the newest stable.
+#   2. Update pkgver.
+#   3. Download the .deb and its .asc signature from the versioned CDN URL:
+#        curl -fSL -o mv.deb  https://cdn.mullvad.net/app/desktop/releases/<ver>/MullvadVPN-<ver>_amd64.deb
+#        curl -fSL -o mv.asc  https://cdn.mullvad.net/app/desktop/releases/<ver>/MullvadVPN-<ver>_amd64.deb.asc
+#      Verify signature with the embedded key, then update _sha256 below with
+#        sha256sum mv.deb
+
+# NOTE: intentionally NO _gh_owner= / _gh_repo= here. Those keys make
+# build-iso.sh auto-detect the newest GitHub release and override pkgver at
+# build time, which would silently break the pinned _sha256 below. Version
+# bumps for a security-critical package must be a deliberate human action.
+
+pkgname=mullvad-vpn-bin
+pkgver=2026.3
+pkgrel=1
+pkgdesc='Mullvad VPN client (repackaged from upstream .deb, verified against Mullvad''s PGP key)'
+arch=(x86_64)
+url='https://mullvad.net'
+license=('GPL3')
+depends=(
+    wireguard-tools
+    iptables-nft
+    libnftnl
+    dbus
+    gtk3
+    libnotify
+    libappindicator-gtk3
+    libxss
+    nss
+    at-spi2-core
+)
+makedepends=(curl gnupg)
+provides=(mullvad-vpn mullvad)
+conflicts=(mullvad-vpn mullvad mullvad-vpn-bin-beta)
+install=mullvad-vpn-bin.install
+options=('!strip' '!debug')
+
+# Pinned SHA-256 of the upstream .deb for the version above.
+# Regenerate whenever pkgver changes (see instructions at top of this file).
+_sha256='38c6ee73ae80870688560922a28525b6d0dacc62c2e410938863d7038e931aca'
+
+# Mullvad's code-signing PGP key fingerprint (long form, no spaces).
+# Published at: https://mullvad.net/en/help/install-mullvad-app-linux
+_gpg_fpr='A1198702FC3E0A09A9AE5B75D5A1D4F266DE8DDF'
+
+# The key itself is embedded so the build is fully self-contained -- no runtime
+# keyserver dependency (some archiso build containers have no network to
+# keys.openpgp.org / keyserver.ubuntu.com).
+source=("mullvad-code-signing.gpg")
+sha256sums=('SKIP')
+
+prepare() {
+    local artifact="MullvadVPN-${pkgver}_amd64.deb"
+    local base_url="https://cdn.mullvad.net/app/desktop/releases/${pkgver}"
+
+    # 1. Download the .deb and its detached signature (unless the .deb is
+    #    already cached from a previous build). We use the versioned CDN
+    #    endpoint directly -- the /download/app/deb/<ver> alias on
+    #    mullvad.net only exists for "latest" and 404s on pinned versions.
+    if [[ ! -f "$srcdir/$artifact" ]]; then
+        echo "==> Downloading $artifact from cdn.mullvad.net..."
+        curl -fSL --retry 3 --connect-timeout 30 \
+            -o "$srcdir/$artifact" "${base_url}/${artifact}"
+    fi
+    echo "==> Downloading detached signature..."
+    curl -fSL --retry 3 --connect-timeout 30 \
+        -o "$srcdir/${artifact}.asc" "${base_url}/${artifact}.asc"
+
+    # 2. Verify SHA-256 against the pinned hash BEFORE running any code from
+    #    the downloaded archive (protects against a compromised CDN).
+    echo "==> Verifying SHA-256..."
+    echo "${_sha256}  ${srcdir}/${artifact}" | sha256sum -c -
+
+    # 3. Verify PGP signature against the pinned Mullvad key fingerprint.
+    #    Import the embedded key into an ephemeral GNUPGHOME so we don't
+    #    touch the builder's real keyring.
+    echo "==> Verifying PGP signature (fingerprint: ${_gpg_fpr})..."
+    local gpgtmp
+    gpgtmp=$(mktemp -d)
+    chmod 700 "$gpgtmp"
+    export GNUPGHOME="$gpgtmp"
+
+    gpg --batch --import "$srcdir/mullvad-code-signing.gpg"
+
+    # Confirm the imported key matches the pinned fingerprint (defence in
+    # depth: rejects a swapped-out key file in the pkgbuild directory).
+    if ! gpg --list-keys --with-colons "${_gpg_fpr}" >/dev/null 2>&1; then
+        echo "ERROR: embedded key does not contain expected fingerprint ${_gpg_fpr}" >&2
+        rm -rf "$gpgtmp"
+        return 1
+    fi
+
+    if ! gpg --batch --verify "$srcdir/${artifact}.asc" "$srcdir/${artifact}" 2>&1; then
+        echo "ERROR: PGP signature verification FAILED" >&2
+        rm -rf "$gpgtmp"
+        return 1
+    fi
+
+    rm -rf "$gpgtmp"
+    unset GNUPGHOME
+    echo "==> Signature OK."
+}
+
+build() {
+    echo "Using pre-built Mullvad VPN ${pkgver} from mullvad.net (verified)"
+}
+
+package() {
+    cd "$srcdir"
+    local artifact="MullvadVPN-${pkgver}_amd64.deb"
+
+    # Unpack the Debian archive (ar-format) and extract its data payload
+    # straight into the package root. Mullvad's .deb already targets
+    # /usr/lib/systemd/system/ and /usr/bin, which are Arch-native paths --
+    # no rewriting needed.
+    bsdtar -xf "$artifact"
+    bsdtar -xf data.tar.* -C "$pkgdir"
+
+    # License lives under /opt/Mullvad VPN/ in the .deb -- symlink it to the
+    # conventional location so licensecheck etc. find it.
+    install -d "$pkgdir/usr/share/licenses/$pkgname"
+    if [[ -f "$pkgdir/opt/Mullvad VPN/LICENSE.electron.txt" ]]; then
+        ln -sf "/opt/Mullvad VPN/LICENSE.electron.txt" \
+            "$pkgdir/usr/share/licenses/$pkgname/LICENSE"
+    fi
+}
