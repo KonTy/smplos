@@ -6,8 +6,11 @@
 paru-bin
 
 # EWW - Universal widget system (works on Wayland and X11)
-# Note: eww-bin has a PKGBUILD bug, using regular eww (requires Rust compilation)
-eww
+# smplOS fork with Wayland button-grab fixes (see pkgbuilds/eww-smplos).
+# Upstream AUR `eww` (tag v0.6.0) has a bug where clicking a bar button
+# no-ops until the mouse is moved. eww-smplos is a local PKGBUILD that
+# builds from github.com/smpl-os/eww at a pinned commit.
+eww-smplos
 
 # Screenshot annotation tool (pre-compiled binary)
 satty-bin
@@ -29,6 +32,12 @@ grafium-bin
 
 # Local AI dictation daemon (Whisper-based, fully offline speech-to-text)
 voxtype-bin
+
+# Mullvad VPN client (built from src/shared/pkgbuilds/mullvad-vpn-bin)
+# Repackaged from the upstream .deb on mullvad.net and verified against
+# Mullvad's PGP code-signing key -- avoids AUR maintainer trust chain.
+# Daemon is enabled at boot; kill-switch service is opt-in (see .install).
+mullvad-vpn-bin
 
 # Hyprland plugins/extras (optional)
 # hyprland-plugins-git

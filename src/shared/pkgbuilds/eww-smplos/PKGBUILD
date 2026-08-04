@@ -1,0 +1,75 @@
+# Maintainer: smplOS <https://github.com/smpl-os>
+# smplOS build of eww with the button-click grab fixes.
+#
+# Upstream eww hasn't cut a release since v0.6.0 (April 2024) despite
+# ~30+ fixes on master, and the smplOS fork adds two Wayland fixes on
+# top that are required for the smplOS bar to be usable:
+#
+#   78105f3  fix: Propagation::Stop on button_press prevents GTK default
+#            grab handler
+#   169e47a  fix: avoid pointer grab stuck on button press (Wayland)
+#
+# Without these two commits, clicking a button on the eww bar frequently
+# no-ops until the user moves the mouse — because GTK's default button-
+# press handler installs an implicit pointer grab that Wayland never sees
+# released. Every customer machine running vanilla AUR `eww` (built from
+# upstream tag v0.6.0) has this bug.
+#
+# The fork's master branch is rebased on top of upstream master so we
+# also pick up ~30 fixes and features that upstream never released
+# (formattime crash fix, NaN graph crash fix, systray fixes, wayland
+# multi-monitor improvements, `unfocus-close` on defwindow, etc.).
+#
+# We pin to a specific fork commit rather than tracking HEAD so the fleet
+# stays deterministic — bump _commit + pkgrel here and write a migration
+# to redeploy.
+
+_gh_owner=smpl-os
+_gh_repo=eww
+_commit=78105f363fe38b9e34b0ab05683f3a7d421dbf39
+
+pkgname=eww-smplos
+pkgver=0.6.0.r0.g0d666f6
+pkgrel=1
+pkgdesc='Standalone widget system made in Rust (smplOS fork with Wayland button-grab fixes)'
+arch=(x86_64)
+url="https://github.com/${_gh_owner}/${_gh_repo}"
+license=(MIT)
+makedepends=(cargo git)
+depends=(libdbusmenu-gtk3 gtk3 gtk-layer-shell)
+provides=(eww)
+conflicts=(eww)
+replaces=(eww)
+
+source=("git+${url}.git#commit=${_commit}")
+sha256sums=('SKIP')
+
+pkgver() {
+    cd "$srcdir/$_gh_repo"
+    local base
+    base=$(awk -F '"' '/^version/ {print $2; exit}' crates/eww/Cargo.toml 2>/dev/null || echo 0.6.0)
+    printf '%s.r%s.g%s\n' "$base" \
+        "$(git rev-list --count HEAD)" \
+        "$(git rev-parse --short=7 HEAD)"
+}
+
+prepare() {
+    cd "$srcdir/$_gh_repo"
+    export RUSTUP_TOOLCHAIN=stable
+    cargo fetch --locked --target "$CARCH-unknown-linux-gnu"
+}
+
+build() {
+    cd "$srcdir/$_gh_repo"
+    export RUSTUP_TOOLCHAIN=stable
+    export CARGO_TARGET_DIR=target
+    cargo build --frozen --release
+}
+
+package() {
+    cd "$srcdir/$_gh_repo"
+    install -Dm644 LICENSE -t "$pkgdir/usr/share/licenses/$pkgname/"
+    install -d "$pkgdir/etc/xdg/eww/"
+    cp -r examples/eww-bar "$pkgdir/etc/xdg/eww/"
+    install -Dm755 target/release/eww -t "$pkgdir/usr/bin/"
+}
