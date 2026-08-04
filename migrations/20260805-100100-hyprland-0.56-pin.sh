@@ -80,10 +80,56 @@ if ! [[ "$_available" =~ ^${_target_series//./\\.}\.[0-9]+-[0-9]+$ ]]; then
 fi
 
 # ── Install Arch's current $_target_series.x release ─────────────────────────
-echo "  Installing hyprland=$_available (series $_target_series, was $_current)"
-if sudo pacman -S --noconfirm --needed "hyprland=$_available"; then
+# hyprland 0.56.x requires a specific libhyprutils.so and libaquamarine.so
+# ABI. On a customer machine that was frozen for months, `hyprutils`,
+# `aquamarine`, `hyprgraphics`, `hyprland-guiutils`, `hyprlang`, `hyprlock`,
+# `hyprwire`, `hyprtoolkit`, and `xdg-desktop-portal-hyprland` are all still
+# at old versions that pin the OLD libraries. Trying to install hyprland
+# alone (`pacman -S hyprland`) fails with:
+#     installing hyprutils (X) breaks dependency 'libhyprutils.so=Y-64'
+#     required by hyprgraphics / hyprland-guiutils / hyprlang / hyprlock / ...
+# because pacman refuses to leave existing packages broken.
+#
+# Fix: hand pacman the ENTIRE hypr* stack in one transaction. Pacman then
+# resolves all the ABI bumps together and everything upgrades atomically.
+# We only pass packages that are ACTUALLY installed on this host — passing
+# hyprtoolkit / hyprwire to a machine that never installed them would trip
+# "target not found" for no reason.
+_hypr_stack=(
+    hyprland
+    aquamarine
+    hyprutils
+    hyprgraphics
+    hyprlang
+    hyprland-guiutils
+    hyprwire
+    hyprtoolkit
+    hyprcursor
+    hyprlock
+    hypridle
+    hyprpaper
+    hyprpicker
+    hyprsunset
+    xdg-desktop-portal-hyprland
+)
+_install_args=()
+for p in "${_hypr_stack[@]}"; do
+    if pacman -Q "$p" &>/dev/null; then
+        if [[ "$p" == "hyprland" ]]; then
+            _install_args+=("hyprland=$_available")
+        else
+            _install_args+=("$p")
+        fi
+    fi
+done
+
+echo "  Installing hypr stack atomically to resolve ABI lockstep:"
+echo "    packages: ${_install_args[*]}"
+echo "    hyprland target: $_available (was $_current)"
+
+if sudo pacman -S --noconfirm --needed "${_install_args[@]}"; then
     _new=$(pacman -Q hyprland 2>/dev/null | awk '{print $2}')
-    echo "  Installed hyprland $_new"
+    echo "  Installed hyprland $_new + upgraded hypr stack"
     # Record the bundle marker so the bundle mechanism doesn't re-apply.
     _state_dir="$HOME/.local/state/smplos/update"
     mkdir -p "$_state_dir"
@@ -96,7 +142,9 @@ if sudo pacman -S --noconfirm --needed "hyprland=$_available"; then
 else
     # Exit non-zero so smplos-migrate does NOT create the "done" marker,
     # and this migration retries on the next Update OS click.
-    echo "  ERROR: pacman install of hyprland=$_available failed — will retry on next update."
+    echo "  ERROR: hypr stack install failed — will retry on next update."
+    echo "         Above error output identifies which package(s) refused;"
+    echo "         common cause: a stray manual pin/hold in /etc/pacman.conf."
     exit 1
 fi
 

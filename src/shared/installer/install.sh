@@ -471,7 +471,14 @@ echo "==> Restoring standard pacman configuration..."
 sudo tee /etc/pacman.conf > /dev/null << 'PACMANEOF'
 [options]
 HoldPkg     = pacman glibc brave-bin
-IgnorePkg   = hyprland eww
+# NOTE: hyprland/eww ignore policy is enforced at update time by
+# smplos-update via `pacman -Syu --ignore` computed from
+# src/shared/update-policy/critical-packages.txt. DO NOT re-add
+# `IgnorePkg = hyprland eww` here — a static IgnorePkg entry silently
+# breaks the fleet catch-up path (blocks `pacman -S hyprland=X.Y.Z`
+# with a [Y/n] prompt whose default has changed between pacman
+# releases, and blocks migrations that need to upgrade the pinned
+# packages atomically). See migrations/20260805-100050-clear-*.
 Architecture = auto
 ParallelDownloads = 5
 SigLevel    = Required DatabaseOptional
