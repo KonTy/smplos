@@ -1,0 +1,58 @@
+post_install() {
+    # /usr/bin/mullvad-exclude uses cgroup manipulation to run a command
+    # outside the VPN tunnel. Mullvad's own Debian postinst SUIDs it so
+    # unprivileged users can invoke it. We mirror that behaviour.
+    chmod u+s /usr/bin/mullvad-exclude 2>/dev/null || true
+
+    # Enable + start the daemon. On the smplOS ISO, build.sh preseeds the
+    # multi-user.target.wants symlink directly into airootfs; but for users
+    # who install this .pkg.tar.zst outside the ISO (e.g. locally via
+    # makepkg -si, or on a smplOS system after `pacman -U`), we still need
+    # to wire the daemon up. `systemctl` in a chroot-during-image-build
+    # context is a no-op, so this is safe there too.
+    systemctl daemon-reload 2>/dev/null || true
+    systemctl enable mullvad-daemon.service 2>/dev/null || true
+    systemctl start  mullvad-daemon.service 2>/dev/null || true
+
+    cat <<'EOF'
+
+Mullvad VPN has been installed.
+
+  * Daemon (mullvad-daemon.service) is enabled by default and starts at boot.
+  * The optional "always block" kill-switch service is NOT enabled by default
+    to avoid breaking connectivity for users who haven't logged in yet.
+    To enable it after you've set up your account:
+        sudo systemctl enable --now mullvad-early-boot-blocking.service
+  * Log in:      mullvad account login <account-number>
+  * Connect:     mullvad connect
+  * Status:      mullvad status
+  * GUI:         launch "Mullvad VPN" from the start menu
+
+EOF
+}
+
+post_upgrade() {
+    chmod u+s /usr/bin/mullvad-exclude 2>/dev/null || true
+
+    # Restart the daemon after upgrade so the new binary is running.
+    # SIGUSR1 (via RestartKillSignal in the unit) puts it in lockdown mode
+    # first to prevent leaks during the restart.
+    systemctl daemon-reload 2>/dev/null || true
+    systemctl try-restart mullvad-daemon.service 2>/dev/null || true
+}
+
+pre_remove() {
+    # Stop before we yank the binaries so mullvad-setup can still reset the
+    # firewall cleanly. Ignore failures -- the service may already be stopped.
+    systemctl stop mullvad-daemon.service 2>/dev/null || true
+    systemctl stop mullvad-early-boot-blocking.service 2>/dev/null || true
+    systemctl disable mullvad-daemon.service 2>/dev/null || true
+    systemctl disable mullvad-early-boot-blocking.service 2>/dev/null || true
+
+    # Clear firewall rules the daemon installed. Without this the machine
+    # can end up with a dangling kill-switch that blocks all traffic.
+    if [[ -x "/opt/Mullvad VPN/resources/mullvad-setup" ]]; then
+        "/opt/Mullvad VPN/resources/mullvad-setup" reset-firewall 2>/dev/null || true
+        "/opt/Mullvad VPN/resources/mullvad-setup" remove-device   2>/dev/null || true
+    fi
+}

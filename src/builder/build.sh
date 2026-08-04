@@ -1564,6 +1564,15 @@ setup_services() {
     # Enable iptsd for Microsoft Surface touch support
     ln -sf /usr/lib/systemd/system/iptsd.service \
         "$airootfs/etc/systemd/system/multi-user.target.wants/iptsd.service" 2>/dev/null || true
+
+    # Enable Mullvad VPN daemon (installed via src/shared/pkgbuilds/mullvad-vpn-bin).
+    # CLI and GUI need the daemon running to talk to it. This does NOT auto-connect
+    # -- the user must still `mullvad account login` and `mullvad connect`.
+    # The sibling mullvad-early-boot-blocking.service (network kill-switch) is
+    # intentionally NOT enabled by default: it would block all traffic until the
+    # user has logged into their account.
+    ln -sf /usr/lib/systemd/system/mullvad-daemon.service \
+        "$airootfs/etc/systemd/system/multi-user.target.wants/mullvad-daemon.service" 2>/dev/null || true
     
     # Auto-login on tty1
     cat > "$airootfs/etc/systemd/system/getty@tty1.service.d/autologin.conf" << 'AUTOLOGIN'
