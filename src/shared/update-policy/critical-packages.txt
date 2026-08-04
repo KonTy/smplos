@@ -1,42 +1,21 @@
 # Critical stack package policy for smplOS updates.
-# These are excluded from regular pacman/paru update passes.
+# These are the ONLY packages excluded from regular `pacman -Syu` passes;
+# everything else (kernels, microcode, bootloader, mesa, nvidia stack,
+# hyprpaper/hypridle/hyprlock, xf86-video-*, xdg-desktop-portal, etc.)
+# updates naturally against Arch upstream.
+#
+# Rationale: freezing packages is a security/stability cost (missed CVE
+# fixes, long-tail divergence from Arch) that only pays off for packages
+# whose ABI is locked across the wider smplOS stack. In practice that is
+# just Hyprland and its Wayland portal — Hyprland plugins are ABI-locked
+# to the exact compositor build, and xdg-desktop-portal-hyprland tracks
+# that same API. Everything else can (and should) roll forward with Arch.
+#
+# When we need a new coordinated Hyprland version fleet-wide, bump the
+# BUNDLE_ID + pin in critical-bundle.conf and smplos-update will apply
+# the whole set as one atomic step (with prompt + reboot).
 #
 # Keep one package per line. No commas.
-# Full updates can apply these only via critical-bundle.conf.
 
-linux
-linux-lts
-linux-zen
-linux-hardened
-linux-headers
-linux-lts-headers
-linux-zen-headers
-linux-hardened-headers
-nvidia
-nvidia-lts
-nvidia-dkms
-nvidia-utils
-lib32-nvidia-utils
-mesa
-lib32-mesa
-vulkan-radeon
-lib32-vulkan-radeon
-amdvlk
-lib32-amdvlk
-xf86-video-amdgpu
-xf86-video-intel
-xf86-video-nouveau
-amd-ucode
-intel-ucode
-grub
-mkinitcpio
-mkinitcpio-busybox
 hyprland
-eww
-xdg-desktop-portal
 xdg-desktop-portal-hyprland
-hyprpaper
-hypridle
-hyprlock
-hyprsunset
-hyprpicker
