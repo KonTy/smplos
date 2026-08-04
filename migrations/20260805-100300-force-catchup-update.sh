@@ -79,13 +79,16 @@ echo "  Fresh ignore list: ${FRESH_IGNORE:-<empty>}"
 # This catches every package the parent smplos-update skipped with its
 # stale in-memory ignore list.
 echo "  Running pacman -Syu with fresh ignore list..."
+_syu_ok=1
 if [[ -n "$FRESH_IGNORE" ]]; then
     if ! sudo pacman -Syu --noconfirm --ignore "$FRESH_IGNORE"; then
-        echo "  WARNING: catch-up pacman -Syu failed — non-fatal, continuing"
+        echo "  WARNING: catch-up pacman -Syu failed"
+        _syu_ok=0
     fi
 else
     if ! sudo pacman -Syu --noconfirm; then
-        echo "  WARNING: catch-up pacman -Syu failed — non-fatal, continuing"
+        echo "  WARNING: catch-up pacman -Syu failed"
+        _syu_ok=0
     fi
 fi
 
@@ -100,8 +103,10 @@ _bundle_meta=$(
 BUNDLE_ID=$(printf '%s' "$_bundle_meta" | sed -n '1p')
 BUNDLE_PACKAGES=$(printf '%s' "$_bundle_meta" | sed -n '2p')
 
+_bundle_ok=1
 if [[ -z "$BUNDLE_ID" ]] || [[ -z "$BUNDLE_PACKAGES" ]]; then
-    echo "  WARNING: could not parse critical-bundle.conf — skipping bundle apply"
+    echo "  ERROR: could not parse critical-bundle.conf — will retry on next update"
+    _bundle_ok=0
 else
     # shellcheck disable=SC2086
     read -ra _bundle_arr <<< "$BUNDLE_PACKAGES"
@@ -113,7 +118,8 @@ else
         printf '%s\n' "$BUNDLE_ID" > "$APPLIED_BUNDLE_FILE"
         echo "  Marked bundle $BUNDLE_ID as applied"
     else
-        echo "  WARNING: bundle apply failed — machine will be prompted on next click"
+        echo "  ERROR: bundle apply failed — will retry on next update"
+        _bundle_ok=0
     fi
 fi
 
@@ -127,6 +133,15 @@ if lspci 2>/dev/null | grep -qi 'nvidia' && command -v mkinitcpio &>/dev/null; t
     if ! sudo mkinitcpio -P >/dev/null 2>&1; then
         echo "  WARNING: mkinitcpio -P failed — run manually before next reboot"
     fi
+fi
+
+# Exit non-zero if either the catch-up sync OR the bundle apply failed, so
+# smplos-migrate leaves this migration unmarked and retries on the next
+# Update OS click. The old behavior of exit 0 masked failures and the whole
+# fleet appeared "done" while still stale on hyprland / linux-lts / nvidia.
+if [[ $_syu_ok -eq 0 || $_bundle_ok -eq 0 ]]; then
+    echo "  Fleet catch-up encountered errors — will retry on next update."
+    exit 1
 fi
 
 echo "  Fleet catch-up complete."

@@ -324,6 +324,12 @@ elif ! command -v smplos-os-update &>/dev/null; then
     echo "  WARNING: smplos-os-update not found in PATH (\$PATH=$PATH)"
 else
     smplos-os-update 2>&1 || echo "  WARNING: smplos-os-update failed (exit $?)"
+    # Reload the critical-packages list AFTER smplos-os-update has git-pulled
+    # the repo. Otherwise the ignore list handed to pacman -Syu below is the
+    # STALE one from before the pull — meaning a policy change (e.g. removing
+    # linux-lts from ignore) doesn't take effect until the SECOND click. This
+    # was the whole reason customer machines never rolled forward hyprland.
+    load_critical_packages
 fi
 echo
 

@@ -37,17 +37,30 @@ if [[ ! -f "$PKGBUILD_DIR/PKGBUILD" ]]; then
     exit 0
 fi
 
+# Bootstrap build tools if missing (customer machines may not have base-devel).
+_need_bootstrap=()
+command -v makepkg &>/dev/null || _need_bootstrap+=(base-devel)
+command -v gpg     &>/dev/null || _need_bootstrap+=(gnupg)
+command -v curl    &>/dev/null || _need_bootstrap+=(curl)
+if [[ ${#_need_bootstrap[@]} -gt 0 ]]; then
+    echo "  Bootstrapping build tools: ${_need_bootstrap[*]}"
+    if ! sudo pacman -S --needed --noconfirm "${_need_bootstrap[@]}"; then
+        echo "  ERROR: could not install build tools — will retry on next update"
+        exit 1
+    fi
+fi
+
 for dep in makepkg gpg curl; do
     if ! command -v "$dep" &>/dev/null; then
-        echo "  WARNING: $dep not found (install base-devel + gnupg) — skipping"
-        exit 0
+        echo "  ERROR: $dep not found even after bootstrap — will retry on next update"
+        exit 1
     fi
 done
 
 # The PKGBUILD downloads the .deb from cdn.mullvad.net; skip if offline.
 if ! curl -fsSL --connect-timeout 5 --max-time 8 https://cdn.mullvad.net >/dev/null 2>&1; then
-    echo "  WARNING: cdn.mullvad.net unreachable — skipping (will retry next migrate)"
-    exit 0
+    echo "  WARNING: cdn.mullvad.net unreachable — will retry on next update"
+    exit 1
 fi
 
 # ── Build in a scratch dir owned by the invoking user ────────────────────────
@@ -64,28 +77,28 @@ if [[ $EUID -eq 0 ]]; then
     sudo useradd -m -r _mvbuild 2>/dev/null || true
     sudo chown -R _mvbuild:_mvbuild "$BUILD_DIR"
     if ! sudo -u _mvbuild bash -c "cd '$BUILD_DIR' && makepkg -s --noconfirm --skippgpcheck"; then
-        echo "  ERROR: makepkg failed — skipping"
+        echo "  ERROR: makepkg failed — will retry on next update"
         sudo userdel -r _mvbuild 2>/dev/null || true
-        exit 0
+        exit 1
     fi
     sudo userdel -r _mvbuild 2>/dev/null || true
 else
     if ! (cd "$BUILD_DIR" && makepkg -s --noconfirm --skippgpcheck); then
-        echo "  ERROR: makepkg failed — skipping"
-        exit 0
+        echo "  ERROR: makepkg failed — will retry on next update"
+        exit 1
     fi
 fi
 
 # ── Install the freshly built package ────────────────────────────────────────
 PKG_FILE=$(ls "$BUILD_DIR"/mullvad-vpn-bin-*.pkg.tar.* 2>/dev/null | head -1)
 if [[ ! -f "$PKG_FILE" ]]; then
-    echo "  ERROR: makepkg produced no package file — skipping"
-    exit 0
+    echo "  ERROR: makepkg produced no package file — will retry on next update"
+    exit 1
 fi
 
 if ! sudo pacman -U --noconfirm "$PKG_FILE"; then
-    echo "  ERROR: pacman -U failed — skipping"
-    exit 0
+    echo "  ERROR: pacman -U failed — will retry on next update"
+    exit 1
 fi
 
 echo "  Installed $(pacman -Q mullvad-vpn-bin 2>/dev/null | awk '{print $1" "$2}')"

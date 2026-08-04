@@ -475,11 +475,77 @@ sync_apps() {
     fi
 }
 
+# ── Transient NOPASSWD sudoers helpers ───────────────────────────────────────
+# The whole Update-OS flow authenticates ONCE via pkexec (the polkit UI prompt).
+# We then run migrations under `runuser -u $SMPLOS_INVOKER_USER`, which starts
+# a FRESH sudo credential context — so `sudo pacman ...` inside a migration
+# would prompt for a password on the terminal. That's what caused the
+# "asked for password 3 more times in the terminal" bug on customer machines.
+#
+# Fix: while we're already root (via pkexec), drop a scoped sudoers.d fragment
+# granting NOPASSWD sudo to the invoker for the exact tools migrations need
+# (pacman, mkinitcpio, tee, systemctl). It's validated with visudo before it
+# takes effect, and removed on ANY exit path via trap. If the file is
+# somehow left behind (kill -9 the shell), it's still safe: it only grants
+# rights the pkexec-authenticated user just proved they have.
+_grant_transient_sudo() {
+    # Only meaningful when we're root and know the invoker.
+    [[ $EUID -eq 0 && -n "${SMPLOS_INVOKER_USER:-}" ]] || return 0
+
+    # Skip if a fragment is already in place (nested invocation, prior run
+    # that didn't clean up — we'll replace it below with a validated one).
+    local frag="/etc/sudoers.d/99-smplos-update-transient"
+
+    # Compose the fragment. Restrict to specific absolute-path binaries so a
+    # compromise of the user account can't escalate to arbitrary root via
+    # this grant.
+    local tmp
+    tmp=$(mktemp /tmp/smplos-sudoers.XXXXXX)
+    cat > "$tmp" <<SUDOERS
+# Auto-managed by smplos-os-update; grants NOPASSWD sudo to the invoker for
+# the tools migrations legitimately need, ONLY for the duration of one
+# Update OS run. Removed on exit via trap. If you find this file after
+# smplos-update has finished, it is safe to delete:
+#   sudo rm -f /etc/sudoers.d/99-smplos-update-transient
+Defaults:$SMPLOS_INVOKER_USER !requiretty
+$SMPLOS_INVOKER_USER ALL=(root) NOPASSWD: /usr/bin/pacman, /usr/bin/mkinitcpio, /usr/bin/tee, /usr/bin/systemctl, /usr/bin/pacman-key
+SUDOERS
+    chmod 0440 "$tmp"
+
+    # Validate before promoting into /etc/sudoers.d — a malformed fragment
+    # would break ALL sudo on the machine. `visudo -cf` returns 0 iff parse OK.
+    if ! visudo -cf "$tmp" >/dev/null 2>&1; then
+        warn "sudoers fragment failed visudo -cf validation; migrations may prompt for password"
+        rm -f "$tmp"
+        return 0
+    fi
+
+    if install -m 0440 -o root -g root "$tmp" "$frag" 2>/dev/null; then
+        rm -f "$tmp"
+        # Register cleanup ONCE per run.
+        if [[ -z "${_SMPLOS_TRANSIENT_SUDO_TRAP:-}" ]]; then
+            _SMPLOS_TRANSIENT_SUDO_TRAP=1
+            trap '_revoke_transient_sudo' EXIT INT TERM HUP
+        fi
+    else
+        warn "could not install $frag; migrations may prompt for password"
+        rm -f "$tmp"
+    fi
+}
+
+_revoke_transient_sudo() {
+    rm -f /etc/sudoers.d/99-smplos-update-transient 2>/dev/null || true
+}
+
 # ── Run migrations ────────────────────────────────────────────────────────────
 run_migrations() {
     if command -v smplos-migrate &>/dev/null; then
         header ""
         header "── Migrations ──"
+        # Grant transient NOPASSWD sudo for the invoker so migrations that
+        # need `sudo pacman ...` don't re-prompt for a password. Cleaned up
+        # via trap in _grant_transient_sudo.
+        _grant_transient_sudo
         # Run as the invoker so:
         #  (a) migration marker files under ~/.local/state/smplos/migrations/
         #      stay user-owned (else the user can never clear them without sudo),

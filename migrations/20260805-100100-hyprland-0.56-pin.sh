@@ -52,6 +52,20 @@ if ! curl -fsSL --connect-timeout 5 --max-time 8 https://archlinux.org >/dev/nul
     exit 0
 fi
 
+# ── Preflight: sudo must work non-interactively OR interactively ─────────────
+# On customer machines the app-center's Update OS flow drops from root to
+# user context via runuser, and sudo inside migrations does NOT inherit any
+# cached credentials. Without NOPASSWD sudoers, `sudo pacman` fails silently
+# with "a password is required". Exit non-zero so smplos-migrate leaves the
+# "done" marker OFF and retries on the next click (or when the user runs
+# smplos-migrate interactively with a working sudo prompt).
+if ! sudo -n true 2>/dev/null && ! [[ -t 0 ]]; then
+    echo "  ERROR: sudo requires a password and no TTY is available for a prompt."
+    echo "         Re-run 'smplos-migrate' in an interactive terminal, or"
+    echo "         configure NOPASSWD sudoers, then click Update OS again."
+    exit 1
+fi
+
 # ── Install pinned version ───────────────────────────────────────────────────
 echo "  Installing hyprland=$_target_pkgver (was $_current)"
 if sudo pacman -S --noconfirm --needed "hyprland=$_target_pkgver"; then
@@ -68,8 +82,15 @@ if sudo pacman -S --noconfirm --needed "hyprland=$_target_pkgver"; then
         echo "  Marked critical bundle $_target_bundle_id as applied"
     fi
 else
-    echo "  WARNING: pacman install failed (target version may no longer be in Arch extra)"
-    echo "           Bundle mechanism will retry on next smplos-update run."
+    # Exit non-zero so smplos-migrate does NOT create the "done" marker,
+    # and this migration retries on the next Update OS click. Historically
+    # this exited 0 "to not block other migrations" -- a false economy that
+    # cost the fleet a click's worth of stale hyprland (see log analysis
+    # 2026-08-04, sha256 d20f56c smplos-update on host qwfkj23).
+    echo "  ERROR: pacman install failed (target version may no longer be in Arch extra,"
+    echo "         or sudo authentication failed silently). This migration will retry"
+    echo "         on the next Update OS click."
+    exit 1
 fi
 
 exit 0

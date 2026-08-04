@@ -89,7 +89,10 @@ for file in "$MIGRATIONS_DIR"/*.sh; do
         ((n_run++)) || true
     else
         echo -e "\e[31m  Migration ${filename%.sh} failed.\e[0m"
-        # In interactive mode, ask to skip. In non-interactive, fail.
+        # In interactive mode, ask to skip. In non-interactive, log and
+        # continue so a single flaky migration does not block every later
+        # migration in the same run. The failed migration is intentionally
+        # NOT marked done, so the next `smplos-migrate` run retries it.
         if [[ -t 0 ]]; then
             read -rp "  Skip and continue? [y/N] " answer
             if [[ "$answer" =~ ^[Yy] ]]; then
@@ -101,8 +104,8 @@ for file in "$MIGRATIONS_DIR"/*.sh; do
             fi
         else
             ((n_fail++)) || true
-            echo "  Non-interactive: marking as failed."
-            exit 1
+            echo "  Non-interactive: leaving unmarked so it retries on next update."
+            echo "  Continuing with remaining migrations."
         fi
     fi
 done
@@ -112,4 +115,5 @@ if [[ "$MODE" == "dry-run" ]]; then
 else
     [[ $n_run -gt 0 ]] && echo -e "\n  Ran $n_run migration(s)."
     [[ $n_skip -gt 0 ]] && echo "  Skipped $n_skip migration(s)."
+    [[ $n_fail -gt 0 ]] && echo -e "\e[33m  $n_fail migration(s) failed and will retry on the next update.\e[0m"
 fi
