@@ -89,24 +89,21 @@ for file in "$MIGRATIONS_DIR"/*.sh; do
         ((n_run++)) || true
     else
         echo -e "\e[31m  Migration ${filename%.sh} failed.\e[0m"
-        # In interactive mode, ask to skip. In non-interactive, log and
-        # continue so a single flaky migration does not block every later
-        # migration in the same run. The failed migration is intentionally
-        # NOT marked done, so the next `smplos-migrate` run retries it.
-        if [[ -t 0 ]]; then
-            read -rp "  Skip and continue? [y/N] " answer
-            if [[ "$answer" =~ ^[Yy] ]]; then
-                touch "$SKIPPED_DIR/$filename"
-                ((n_skip++)) || true
-            else
-                echo "  Aborting migrations."
-                exit 1
-            fi
-        else
-            ((n_fail++)) || true
-            echo "  Non-interactive: leaving unmarked so it retries on next update."
-            echo "  Continuing with remaining migrations."
+        # DEFAULT: continue with subsequent migrations. The failed migration
+        # is intentionally NOT marked done, so it retries on the next
+        # smplos-migrate run. Aborting the whole chain on one failure means
+        # a single flaky migration blocks every unrelated migration behind
+        # it — which is exactly how the fleet ended up with hyprland stuck
+        # at 0.55.4 when the eww-smplos install hit a resolvable pacman
+        # conflict on 2026-08-04. Use --strict to restore the historical
+        # abort-on-first-failure behavior for one-off manual debugging.
+        ((n_fail++)) || true
+        if [[ "${SMPLOS_MIGRATE_STRICT:-0}" == "1" ]]; then
+            echo "  --strict: aborting migrations."
+            exit 1
         fi
+        echo "  Leaving unmarked so it retries on next update."
+        echo "  Continuing with remaining migrations."
     fi
 done
 

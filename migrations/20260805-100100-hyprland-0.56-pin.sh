@@ -25,7 +25,18 @@
 
 set -uo pipefail
 
-_target_pkgver="0.56.0-2"
+# ── Pin to a hyprland SERIES (major.minor), not an exact release ─────────────
+# We stay on the 0.56.x line because it carries the NVIDIA black-screen fix
+# and has proved stable across the fleet. Within 0.56.x, Arch's patch bumps
+# (0.56.0 → 0.56.1 → …) are ABI-compatible and safe. This migration finds
+# whatever 0.56.x is CURRENTLY in Arch extra and installs that — no static
+# pin that rots out of the mirror after a month.
+#
+# When Arch drops 0.56.x entirely (Arch typically ships only the newest
+# release), this migration fails LOUDLY with "no 0.56.x available in
+# Arch — bump _target_series". That's the signal to test 0.57.x on a
+# staging box and bump the series here + in critical-bundle.conf.
+_target_series="0.56"
 
 # ── Idempotency guard ────────────────────────────────────────────────────────
 _current=$(pacman -Q hyprland 2>/dev/null | awk '{print $2}')
@@ -34,15 +45,9 @@ if [[ -z "$_current" ]]; then
     exit 0
 fi
 
-if [[ "$_current" == "$_target_pkgver" ]]; then
-    echo "  hyprland already at $_target_pkgver — nothing to do"
-    exit 0
-fi
-
-# vercmp returns positive if $_current > $_target, so we skip only if current is
-# already newer (a customer who applied a future bundle bump beyond this pin).
-if [[ $(vercmp "$_current" "$_target_pkgver" 2>/dev/null || echo 0) -gt 0 ]]; then
-    echo "  hyprland already newer than $_target_pkgver ($_current) — nothing to do"
+# Match "0.56.something-something"; anchor the series so 0.560.x doesn't slip.
+if [[ "$_current" =~ ^${_target_series//./\\.}\.[0-9]+-[0-9]+$ ]]; then
+    echo "  hyprland already in $_target_series.x series ($_current) — nothing to do"
     exit 0
 fi
 
@@ -52,44 +57,46 @@ if ! curl -fsSL --connect-timeout 5 --max-time 8 https://archlinux.org >/dev/nul
     exit 0
 fi
 
-# ── Preflight: sudo must work non-interactively OR interactively ─────────────
-# On customer machines the app-center's Update OS flow drops from root to
-# user context via runuser, and sudo inside migrations does NOT inherit any
-# cached credentials. Without NOPASSWD sudoers, `sudo pacman` fails silently
-# with "a password is required". Exit non-zero so smplos-migrate leaves the
-# "done" marker OFF and retries on the next click (or when the user runs
-# smplos-migrate interactively with a working sudo prompt).
-if ! sudo -n true 2>/dev/null && ! [[ -t 0 ]]; then
-    echo "  ERROR: sudo requires a password and no TTY is available for a prompt."
-    echo "         Re-run 'smplos-migrate' in an interactive terminal, or"
-    echo "         configure NOPASSWD sudoers, then click Update OS again."
+# ── Preflight: refresh package DB so pacman -Si sees the current mirror ─────
+# Without a fresh -Sy, `pacman -Si hyprland` reflects whatever the last
+# `pacman -Syu` synced, which on frozen machines can be months old.
+sudo pacman -Sy --noconfirm >/dev/null 2>&1 || true
+
+# ── Discover what Arch currently offers in the $_target_series series ───────
+_available=$(pacman -Si hyprland 2>/dev/null | awk '/^Version[[:space:]]*:/ {print $3; exit}')
+if [[ -z "$_available" ]]; then
+    echo "  ERROR: could not query Arch extra for hyprland — will retry on next update"
     exit 1
 fi
 
-# ── Install pinned version ───────────────────────────────────────────────────
-echo "  Installing hyprland=$_target_pkgver (was $_current)"
-if sudo pacman -S --noconfirm --needed "hyprland=$_target_pkgver"; then
-    echo "  Installed hyprland $(pacman -Q hyprland 2>/dev/null | awk '{print $2}')"
-    # Record the state-file marker so the bundle mechanism doesn't re-apply
-    # the same set (idempotent with the bundle path).
+if ! [[ "$_available" =~ ^${_target_series//./\\.}\.[0-9]+-[0-9]+$ ]]; then
+    echo "  ERROR: Arch no longer publishes $_target_series.x for hyprland."
+    echo "         Arch current: $_available"
+    echo "         Installed:    $_current"
+    echo "         The fleet needs a new pin — bump _target_series in this"
+    echo "         migration and in critical-bundle.conf on a staging box,"
+    echo "         then re-cut the bundle so this rolls out."
+    exit 1
+fi
+
+# ── Install Arch's current $_target_series.x release ─────────────────────────
+echo "  Installing hyprland=$_available (series $_target_series, was $_current)"
+if sudo pacman -S --noconfirm --needed "hyprland=$_available"; then
+    _new=$(pacman -Q hyprland 2>/dev/null | awk '{print $2}')
+    echo "  Installed hyprland $_new"
+    # Record the bundle marker so the bundle mechanism doesn't re-apply.
     _state_dir="$HOME/.local/state/smplos/update"
     mkdir -p "$_state_dir"
-    # Only touch the bundle marker if it doesn't already claim a newer bundle.
     _applied="$_state_dir/critical-bundle-applied"
-    _target_bundle_id="2026.08.03-1"
+    _target_bundle_id="2026.08.04-3"
     if [[ ! -f "$_applied" ]] || [[ "$(<"$_applied")" != "$_target_bundle_id" ]]; then
         printf '%s\n' "$_target_bundle_id" > "$_applied"
         echo "  Marked critical bundle $_target_bundle_id as applied"
     fi
 else
     # Exit non-zero so smplos-migrate does NOT create the "done" marker,
-    # and this migration retries on the next Update OS click. Historically
-    # this exited 0 "to not block other migrations" -- a false economy that
-    # cost the fleet a click's worth of stale hyprland (see log analysis
-    # 2026-08-04, sha256 d20f56c smplos-update on host qwfkj23).
-    echo "  ERROR: pacman install failed (target version may no longer be in Arch extra,"
-    echo "         or sudo authentication failed silently). This migration will retry"
-    echo "         on the next Update OS click."
+    # and this migration retries on the next Update OS click.
+    echo "  ERROR: pacman install of hyprland=$_available failed — will retry on next update."
     exit 1
 fi
 

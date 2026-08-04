@@ -101,8 +101,25 @@ if [[ ! -f "$PKG_FILE" ]]; then
 fi
 
 if ! sudo pacman -U --noconfirm "$PKG_FILE"; then
-    echo "  ERROR: pacman -U failed — will retry on next update"
-    exit 1
+    # pacman -U --noconfirm defaults to N on conflict prompts. If the
+    # customer already has vanilla `eww` installed (which every pre-fork
+    # machine does), the prompt "eww-smplos and eww are in conflict.
+    # Remove eww? [y/N]" is answered No automatically, and the transaction
+    # aborts. Remove eww explicitly and retry.
+    if pacman -Q eww &>/dev/null; then
+        echo "  Retry: removing vanilla eww to resolve conflict..."
+        if ! sudo pacman -R --noconfirm eww; then
+            echo "  ERROR: could not remove vanilla eww — will retry on next update"
+            exit 1
+        fi
+        if ! sudo pacman -U --noconfirm "$PKG_FILE"; then
+            echo "  ERROR: pacman -U failed after removing eww — will retry on next update"
+            exit 1
+        fi
+    else
+        echo "  ERROR: pacman -U failed — will retry on next update"
+        exit 1
+    fi
 fi
 
 # ── Restart the bar so the user picks up the fixed binary immediately ────────
