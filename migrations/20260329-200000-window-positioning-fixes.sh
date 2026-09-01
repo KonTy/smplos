@@ -11,6 +11,18 @@
 
 set -euo pipefail
 
+# ── Session env (see src/shared/lib/smplos-session-env.sh) ──────────────────
+# pkexec strips XDG_RUNTIME_DIR / WAYLAND_DISPLAY / HYPRLAND_INSTANCE_SIGNATURE,
+# so session-scoped commands must be re-attached to the invoker's session.
+# shellcheck source=../src/shared/lib/smplos-session-env.sh
+source "$(dirname "${BASH_SOURCE[0]}")/../src/shared/lib/smplos-session-env.sh" 2>/dev/null || {
+    echo "  WARNING: smplos-session-env.sh not found — skipping session-scoped steps"
+    smplos_have_session()  { return 1; }
+    smplos_have_hyprland() { return 1; }
+    smplos_have_user_bus() { return 1; }
+    smplos_run_as_user()   { return 1; }
+}
+
 HYPR_DIR="$HOME/.config/hypr"
 WINDOWS_CONF="$HYPR_DIR/windows.conf"
 AUTOSTART_CONF="$HYPR_DIR/autostart.conf"
@@ -89,17 +101,26 @@ fi
 # ── 4. Start window-guard if not already running ─────────────────────────────
 if command -v window-guard &>/dev/null; then
     if ! pgrep -f 'window-guard' &>/dev/null; then
-        bash -c 'window-guard &' 2>/dev/null
-        echo "  Started window-guard daemon"
-        ((n_changes++)) || true
+        # window-guard talks to Hyprland's IPC socket, so it needs the
+        # invoker's session env — under pkexec it would exit immediately.
+        if smplos_have_session; then
+            smplos_run_as_user bash -c 'window-guard &' 2>/dev/null || true
+            echo "  Started window-guard daemon"
+            ((n_changes++)) || true
+        else
+            echo "  No graphical session — window-guard starts on next login"
+        fi
     else
         echo "  window-guard already running"
     fi
 fi
 
 # ── 5. Reload Hyprland to pick up windows.conf changes ───────────────────────
-if command -v hyprctl &>/dev/null && [[ -n "${HYPRLAND_INSTANCE_SIGNATURE:-}" ]]; then
-    hyprctl reload &>/dev/null && echo "  Reloaded Hyprland config"
+# Was guarded on $HYPRLAND_INSTANCE_SIGNATURE, which pkexec strips — so this
+# step silently skipped on every Update OS run and users had to reload by hand.
+if smplos_have_hyprland; then
+    smplos_run_as_user hyprctl reload &>/dev/null \
+        && echo "  Reloaded Hyprland config" || true
 fi
 
 if [[ $n_changes -eq 0 ]]; then

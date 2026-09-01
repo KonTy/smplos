@@ -142,6 +142,17 @@ if do_component bin; then
     log "  $(ls "$SRC_DIR/shared/bin" | wc -l) scripts installed"
 fi
 
+# ── Shared shell libraries ──────────────────────────────────
+if do_component bin; then
+    if [[ -d "$SRC_DIR/shared/lib" ]]; then
+        log "Applying shell libraries..."
+        mkdir -p /usr/local/lib/smplos
+        cp "$SRC_DIR/shared/lib/"*.sh /usr/local/lib/smplos/ 2>/dev/null || true
+        chmod 644 /usr/local/lib/smplos/*.sh 2>/dev/null || true
+        log "  $(ls "$SRC_DIR/shared/lib" | wc -l) libraries installed"
+    fi
+fi
+
 # ── Shared configs ──────────────────────────────────────────
 if do_component configs; then
     log "Applying shared configs..."

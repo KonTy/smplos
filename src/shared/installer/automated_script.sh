@@ -227,6 +227,15 @@ EOF
     chmod +x /mnt/usr/local/bin/* 2>/dev/null || true
   fi
 
+  # Deploy sourceable shell libraries (smplos-session-env.sh, ...) to
+  # /usr/local/lib/smplos/. These are libraries, not commands — keep them out
+  # of /usr/local/bin so they are never treated as executables.
+  if [[ -d /root/smplos/lib ]]; then
+    mkdir -p /mnt/usr/local/lib/smplos
+    cp /root/smplos/lib/*.sh /mnt/usr/local/lib/smplos/ 2>/dev/null || true
+    chmod 644 /mnt/usr/local/lib/smplos/*.sh 2>/dev/null || true
+  fi
+
   # Copy AppImages to installed system
   if ls /opt/appimages/*.AppImage &>/dev/null; then
     mkdir -p /mnt/opt/appimages

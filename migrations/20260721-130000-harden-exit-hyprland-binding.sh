@@ -20,6 +20,18 @@
 
 set -uo pipefail
 
+# ── Session env (see src/shared/lib/smplos-session-env.sh) ──────────────────
+# pkexec strips XDG_RUNTIME_DIR / WAYLAND_DISPLAY / HYPRLAND_INSTANCE_SIGNATURE,
+# so session-scoped commands must be re-attached to the invoker's session.
+# shellcheck source=../src/shared/lib/smplos-session-env.sh
+source "$(dirname "${BASH_SOURCE[0]}")/../src/shared/lib/smplos-session-env.sh" 2>/dev/null || {
+    echo "  WARNING: smplos-session-env.sh not found — skipping session-scoped steps"
+    smplos_have_session()  { return 1; }
+    smplos_have_hyprland() { return 1; }
+    smplos_have_user_bus() { return 1; }
+    smplos_run_as_user()   { return 1; }
+}
+
 # bindings_loader.lua reads ~/.config/smplos/bindings.conf FIRST, then falls
 # back to ~/.config/hypr/bindings.conf. Both are user-owned + preserved by
 # smplos-os-update (bindings.conf is on the "protected" list because Settings
@@ -61,9 +73,11 @@ harden_file() {
 harden_file "$HOME/.config/smplos/bindings.conf"
 harden_file "$HOME/.config/hypr/bindings.conf"
 
-# Live-reload if we're inside a Hyprland session
-if command -v hyprctl >/dev/null 2>&1 && [[ -n "${HYPRLAND_INSTANCE_SIGNATURE:-}" ]]; then
-    hyprctl reload >/dev/null 2>&1 || true
+# Live-reload if we're inside a Hyprland session.
+# Was guarded on $HYPRLAND_INSTANCE_SIGNATURE, which pkexec strips — so this
+# step silently skipped on every Update OS run.
+if smplos_have_hyprland; then
+    smplos_run_as_user hyprctl reload >/dev/null 2>&1 || true
 fi
 
 exit 0

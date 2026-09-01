@@ -14,6 +14,18 @@
 
 set -uo pipefail
 
+# ── Session env (see src/shared/lib/smplos-session-env.sh) ──────────────────
+# pkexec strips XDG_RUNTIME_DIR / WAYLAND_DISPLAY / HYPRLAND_INSTANCE_SIGNATURE,
+# so session-scoped commands must be re-attached to the invoker's session.
+# shellcheck source=../src/shared/lib/smplos-session-env.sh
+source "$(dirname "${BASH_SOURCE[0]}")/../src/shared/lib/smplos-session-env.sh" 2>/dev/null || {
+    echo "  WARNING: smplos-session-env.sh not found — skipping session-scoped steps"
+    smplos_have_session()  { return 1; }
+    smplos_have_hyprland() { return 1; }
+    smplos_have_user_bus() { return 1; }
+    smplos_run_as_user()   { return 1; }
+}
+
 # Primary binds file loaded by bindings_loader.lua; fall back to the hypr one.
 BINDS=""
 for candidate in "$HOME/.config/smplos/bindings.conf" "$HOME/.config/hypr/bindings.conf"; do
@@ -48,8 +60,10 @@ EOF
 echo "  Added scrolling side-by-side binds to $BINDS"
 
 # Reload Hyprland so the new binds take effect immediately.
-if hyprctl version &>/dev/null 2>&1; then
-    hyprctl reload &>/dev/null 2>&1 && echo "  Reloaded Hyprland" || true
+# `hyprctl version` was run with a stripped env, so it always failed with
+# "HYPRLAND_INSTANCE_SIGNATURE not set!" and the reload never happened.
+if smplos_have_hyprland; then
+    smplos_run_as_user hyprctl reload &>/dev/null && echo "  Reloaded Hyprland" || true
 fi
 
 exit 0

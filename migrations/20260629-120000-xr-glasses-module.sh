@@ -25,6 +25,18 @@
 
 set -euo pipefail
 
+# ── Session env (see src/shared/lib/smplos-session-env.sh) ──────────────────
+# pkexec strips XDG_RUNTIME_DIR / WAYLAND_DISPLAY / HYPRLAND_INSTANCE_SIGNATURE,
+# so session-scoped commands must be re-attached to the invoker's session.
+# shellcheck source=../src/shared/lib/smplos-session-env.sh
+source "$(dirname "${BASH_SOURCE[0]}")/../src/shared/lib/smplos-session-env.sh" 2>/dev/null || {
+    echo "  WARNING: smplos-session-env.sh not found — skipping session-scoped steps"
+    smplos_have_session()  { return 1; }
+    smplos_have_hyprland() { return 1; }
+    smplos_have_user_bus() { return 1; }
+    smplos_run_as_user()   { return 1; }
+}
+
 SMPLOS_PATH="${SMPLOS_PATH:-$HOME/.local/share/smplos}"
 REPO="$SMPLOS_PATH/repo"
 
@@ -59,8 +71,11 @@ WANTS="$HOME/.config/systemd/user/default.target.wants/xr-glasses.service"
 if [[ -f "$UNIT" ]]; then
     if [[ ! -L "$WANTS" ]]; then
         if command -v systemctl &>/dev/null; then
-            systemctl --user daemon-reload 2>/dev/null || true
-            if systemctl --user enable xr-glasses.service 2>/dev/null; then
+            # Routed through smplos_run_as_user: pkexec strips
+            # XDG_RUNTIME_DIR, so a bare `systemctl --user` can't reach the
+            # user manager and always fell into the symlink fallback below.
+            smplos_run_as_user systemctl --user daemon-reload 2>/dev/null || true
+            if smplos_run_as_user systemctl --user enable xr-glasses.service 2>/dev/null; then
                 echo "  Enabled xr-glasses.service (auto-starts on login)"
             else
                 # Fall back to a manual wants symlink if there is no user bus
@@ -70,7 +85,7 @@ if [[ -f "$UNIT" ]]; then
                 echo "  Linked xr-glasses.service into default.target.wants"
             fi
             # Best-effort immediate start (no-op while the binary is absent).
-            systemctl --user start xr-glasses.service 2>/dev/null || true
+            smplos_run_as_user systemctl --user start xr-glasses.service 2>/dev/null || true
             ((n_changes++)) || true
         else
             mkdir -p "$(dirname "$WANTS")"

@@ -22,6 +22,18 @@
 
 set -uo pipefail
 
+# ── Session env (see src/shared/lib/smplos-session-env.sh) ──────────────────
+# pkexec strips XDG_RUNTIME_DIR / WAYLAND_DISPLAY / HYPRLAND_INSTANCE_SIGNATURE,
+# so session-scoped commands must be re-attached to the invoker's session.
+# shellcheck source=../src/shared/lib/smplos-session-env.sh
+source "$(dirname "${BASH_SOURCE[0]}")/../src/shared/lib/smplos-session-env.sh" 2>/dev/null || {
+    echo "  WARNING: smplos-session-env.sh not found — skipping session-scoped steps"
+    smplos_have_session()  { return 1; }
+    smplos_have_hyprland() { return 1; }
+    smplos_have_user_bus() { return 1; }
+    smplos_run_as_user()   { return 1; }
+}
+
 # Primary binds file loaded by bindings_loader.lua; fall back to the hypr one.
 BINDS=""
 for candidate in "$HOME/.config/smplos/bindings.conf" "$HOME/.config/hypr/bindings.conf"; do
@@ -66,10 +78,13 @@ fi
 # Disable the hyprshell daemon: it is no longer used and crash-loops under
 # systemd when triggered with many windows. Stops it for the current user now;
 # fresh installs are covered by the compositor postinstall (--global disable).
-if systemctl --user list-unit-files hyprshell.service &>/dev/null; then
-    if systemctl --user is-enabled --quiet hyprshell.service 2>/dev/null \
-       || systemctl --user is-active --quiet hyprshell.service 2>/dev/null; then
-        systemctl --user disable --now hyprshell.service 2>/dev/null \
+# `systemctl --user` needs XDG_RUNTIME_DIR (pkexec strips it) or it aborts with
+# "Failed to connect to user scope bus via local transport".
+if smplos_have_user_bus \
+   && smplos_run_as_user systemctl --user list-unit-files hyprshell.service &>/dev/null; then
+    if smplos_run_as_user systemctl --user is-enabled --quiet hyprshell.service 2>/dev/null \
+       || smplos_run_as_user systemctl --user is-active --quiet hyprshell.service 2>/dev/null; then
+        smplos_run_as_user systemctl --user disable --now hyprshell.service 2>/dev/null \
             && echo "  Disabled hyprshell.service" || true
     else
         echo "  hyprshell.service already inactive, nothing to disable"
@@ -77,8 +92,10 @@ if systemctl --user list-unit-files hyprshell.service &>/dev/null; then
 fi
 
 # Reload Hyprland so the new bind takes effect immediately.
-if hyprctl version &>/dev/null 2>&1; then
-    hyprctl reload &>/dev/null 2>&1 && echo "  Reloaded Hyprland" || true
+# `hyprctl version` was run with a stripped env, so it always failed with
+# "HYPRLAND_INSTANCE_SIGNATURE not set!" and the reload never happened.
+if smplos_have_hyprland; then
+    smplos_run_as_user hyprctl reload &>/dev/null && echo "  Reloaded Hyprland" || true
 fi
 
 exit 0

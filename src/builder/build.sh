@@ -1127,6 +1127,16 @@ VOXCFG
         cp -r "$SRC_DIR/shared/bin/"* "$airootfs/root/smplos/bin/" 2>/dev/null || true
         chmod +x "$airootfs/root/smplos/bin/"* 2>/dev/null || true
     fi
+
+    # Copy shared shell libraries (sourceable, NOT executable — must not go in bin)
+    if [[ -d "$SRC_DIR/shared/lib" ]]; then
+        log_info "Copying shared shell libraries"
+        mkdir -p "$airootfs/usr/local/lib/smplos" "$airootfs/root/smplos/lib"
+        cp "$SRC_DIR/shared/lib/"*.sh "$airootfs/usr/local/lib/smplos/" 2>/dev/null || true
+        cp "$SRC_DIR/shared/lib/"*.sh "$airootfs/root/smplos/lib/" 2>/dev/null || true
+        chmod 644 "$airootfs/usr/local/lib/smplos/"*.sh 2>/dev/null || true
+        chmod 644 "$airootfs/root/smplos/lib/"*.sh 2>/dev/null || true
+    fi
     
     # Deploy shared web app .desktop files and icons (available in all editions)
     if [[ -d "$SRC_DIR/shared/applications" ]]; then

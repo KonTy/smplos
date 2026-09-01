@@ -19,6 +19,18 @@
 
 set -uo pipefail
 
+# ── Session env (see src/shared/lib/smplos-session-env.sh) ──────────────────
+# pkexec strips XDG_RUNTIME_DIR / WAYLAND_DISPLAY / HYPRLAND_INSTANCE_SIGNATURE,
+# so session-scoped commands must be re-attached to the invoker's session.
+# shellcheck source=../src/shared/lib/smplos-session-env.sh
+source "$(dirname "${BASH_SOURCE[0]}")/../src/shared/lib/smplos-session-env.sh" 2>/dev/null || {
+    echo "  WARNING: smplos-session-env.sh not found — skipping session-scoped steps"
+    smplos_have_session()  { return 1; }
+    smplos_have_hyprland() { return 1; }
+    smplos_have_user_bus() { return 1; }
+    smplos_run_as_user()   { return 1; }
+}
+
 SO="/usr/local/lib/smplos/libhyprtasking.so"
 SO_BAK_GLOB="/usr/local/lib/smplos/libhyprtasking.so.bak-*"
 
@@ -58,9 +70,11 @@ if [[ -n "$BINDS" ]] && grep -q 'hyprtasking' "$BINDS" 2>/dev/null; then
 fi
 
 # 4) If the plugin is still loaded in the running session, unload it.
-if command -v hyprctl >/dev/null 2>&1; then
-    if hyprctl plugin list 2>/dev/null | grep -qi 'Hyprtasking'; then
-        hyprctl plugin unload "$SO" >/dev/null 2>&1 || true
+# `hyprctl` needs HYPRLAND_INSTANCE_SIGNATURE, which pkexec strips — this used
+# to fail silently and leave the plugin loaded until the next logout.
+if smplos_have_hyprland; then
+    if smplos_run_as_user hyprctl plugin list 2>/dev/null | grep -qi 'Hyprtasking'; then
+        smplos_run_as_user hyprctl plugin unload "$SO" >/dev/null 2>&1 || true
         echo "  Unloaded hyprtasking from live Hyprland session"
     fi
 fi

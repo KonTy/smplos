@@ -22,6 +22,18 @@
 
 set -euo pipefail
 
+# ── Session env (see src/shared/lib/smplos-session-env.sh) ──────────────────
+# pkexec strips XDG_RUNTIME_DIR / WAYLAND_DISPLAY / HYPRLAND_INSTANCE_SIGNATURE,
+# so session-scoped commands must be re-attached to the invoker's session.
+# shellcheck source=../src/shared/lib/smplos-session-env.sh
+source "$(dirname "${BASH_SOURCE[0]}")/../src/shared/lib/smplos-session-env.sh" 2>/dev/null || {
+    echo "  WARNING: smplos-session-env.sh not found — skipping session-scoped steps"
+    smplos_have_session()  { return 1; }
+    smplos_have_hyprland() { return 1; }
+    smplos_have_user_bus() { return 1; }
+    smplos_run_as_user()   { return 1; }
+}
+
 SMPLOS_PATH="${SMPLOS_PATH:-$HOME/.local/share/smplos}"
 SMPLOS_REPO="$SMPLOS_PATH/repo"
 THEMES_SRC="$SMPLOS_REPO/src/shared/themes"
@@ -53,7 +65,11 @@ if [[ -f "$HOME/.config/smplos/current/theme.name" ]]; then
     active=$(< "$HOME/.config/smplos/current/theme.name")
 fi
 if [[ -n "$active" ]] && command -v theme-set &>/dev/null; then
-    if theme-set "$active" >/dev/null 2>&1; then
+    # theme-set live-reloads eww, hyprctl and GTK apps, all of which need the
+    # graphical session env that pkexec strips. Without it the file writes
+    # still land but nothing on screen actually changes.
+    if smplos_run_as_user theme-set "$active" >/dev/null 2>&1 \
+       || theme-set "$active" >/dev/null 2>&1; then
         echo "  Re-applied active theme: $active"
     else
         echo "  Could not re-apply theme '$active' (theme-set failed)"
