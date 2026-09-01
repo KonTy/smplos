@@ -129,6 +129,17 @@ if [[ -d "$SHARE/bin" && "$(ls -A "$SHARE/bin" 2>/dev/null)" ]]; then
     log "  $(ls "$SHARE/bin" | wc -l) scripts installed"
 fi
 
+# ── Shared shell libraries ──────────────────────────────────
+# Sourceable libs (smplos-session-env.sh, ...). Not executable, and kept out
+# of /usr/local/bin so the stale-script sweep above never sees them.
+if [[ -d "$SHARE/lib" && "$(ls -A "$SHARE/lib" 2>/dev/null)" ]]; then
+    log "Applying shell libraries..."
+    mkdir -p /usr/local/lib/smplos
+    cp "$SHARE/lib/"*.sh /usr/local/lib/smplos/ 2>/dev/null || true
+    chmod 644 /usr/local/lib/smplos/*.sh 2>/dev/null || true
+    log "  $(ls "$SHARE/lib" | wc -l) libraries installed"
+fi
+
 # ── Dictation hint ──────────────────────────────────────────
 if command -v voxtype &>/dev/null; then
     vox_ver=$(voxtype --version 2>/dev/null | head -1 || echo "installed")

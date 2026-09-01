@@ -24,8 +24,8 @@ for arg in "$@"; do
 done
 
 # Clean and recreate
-rm -rf "$SHARE"/{eww,bin,hypr,themes,configs,icons,st,notif-center,settings,webapp-center,app-center,start-menu,applications}
-mkdir -p "$SHARE"/{eww,bin,hypr,themes,configs,icons,st,notif-center,settings,webapp-center,app-center,start-menu,applications}
+rm -rf "${SHARE:?}"/{eww,bin,lib,hypr,themes,configs,icons,st,notif-center,settings,webapp-center,app-center,start-menu,applications}
+mkdir -p "$SHARE"/{eww,bin,lib,hypr,themes,configs,icons,st,notif-center,settings,webapp-center,app-center,start-menu,applications}
 
 # EWW
 cp -r "$SRC_DIR/shared/eww/"* "$SHARE/eww/"
@@ -42,6 +42,12 @@ fi
 cp -r "$SRC_DIR/shared/bin/"* "$SHARE/bin/"
 chmod +x "$SHARE/bin/"* 2>/dev/null || true
 log "Bin: $(find "$SHARE/bin" -type f | wc -l) files"
+
+# Shared shell libraries (sourceable, not executable)
+if [[ -d "$SRC_DIR/shared/lib" ]]; then
+    cp "$SRC_DIR/shared/lib/"*.sh "$SHARE/lib/" 2>/dev/null || true
+    log "Lib: $(find "$SHARE/lib" -type f | wc -l) files"
+fi
 
 # Shared configs
 cp -r "$SRC_DIR/shared/configs/"* "$SHARE/configs/"

@@ -21,6 +21,18 @@
 
 set -uo pipefail
 
+# ── Session env (see src/shared/lib/smplos-session-env.sh) ──────────────────
+# pkexec strips XDG_RUNTIME_DIR / WAYLAND_DISPLAY / HYPRLAND_INSTANCE_SIGNATURE,
+# so session-scoped commands must be re-attached to the invoker's session.
+# shellcheck source=../src/shared/lib/smplos-session-env.sh
+source "$(dirname "${BASH_SOURCE[0]}")/../src/shared/lib/smplos-session-env.sh" 2>/dev/null || {
+    echo "  WARNING: smplos-session-env.sh not found — skipping session-scoped steps"
+    smplos_have_session()  { return 1; }
+    smplos_have_hyprland() { return 1; }
+    smplos_have_user_bus() { return 1; }
+    smplos_run_as_user()   { return 1; }
+}
+
 # ── Idempotency guards ───────────────────────────────────────────────────────
 if pacman -Q eww-smplos &>/dev/null; then
     echo "  eww-smplos already installed — nothing to do"
@@ -123,11 +135,46 @@ if ! sudo pacman -U --noconfirm "$PKG_FILE"; then
 fi
 
 # ── Restart the bar so the user picks up the fixed binary immediately ────────
-# Best-effort: bar-ctl is a smplOS script that manages the eww daemon lifecycle.
-if command -v bar-ctl &>/dev/null; then
-    bar-ctl stop  &>/dev/null || true
-    bar-ctl start &>/dev/null || true
+# SAFETY INVARIANT: never tear the bar down unless we can bring it back up.
+#
+# This block used to call `bar-ctl stop` + `bar-ctl start` unconditionally.
+# Migrations run under pkexec, which strips XDG_RUNTIME_DIR and
+# WAYLAND_DISPLAY, so `stop` closed the user's working bar and every `start`
+# afterwards created its IPC socket under /tmp instead of /run/user/<uid> and
+# then died with "Failed to initialize GTK" — no compositor to talk to. The
+# user was left with no status bar and no way for the migration to restore it.
+#
+# Two changes: gate on smplos_have_session BEFORE touching anything, and run
+# through smplos_run_as_user so the commands land in the real session.
+#
+# Also note `bar-ctl stop` only runs `eww close bar` — the daemon, and
+# therefore the OLD eww binary, survives. Kill the daemon so the freshly
+# installed eww-smplos is actually the process that comes back.
+restart_bar() {
+    local eww_config="${SMPLOS_SESSION_HOME:-$HOME}/.config/eww"
+    smplos_run_as_user eww --config "$eww_config" kill &>/dev/null || true
+
+    # Wait for the daemon to actually exit; starting while the old process is
+    # still holding the socket would just re-attach us to the old binary.
+    local waited=0
+    while pgrep -x eww &>/dev/null && [[ $waited -lt 30 ]]; do
+        sleep 0.1
+        waited=$((waited + 1))
+    done
+
+    smplos_run_as_user bar-ctl start &>/dev/null
+}
+
+if ! command -v bar-ctl &>/dev/null; then
+    echo "  bar-ctl not found — restart your bar to pick up eww-smplos"
+elif ! smplos_have_session; then
+    echo "  No graphical session detected — NOT restarting the bar"
+    echo "  (tearing it down here would leave you with no bar until re-login)."
+    echo "  Run 'bar-ctl start', or log out and back in, to load eww-smplos."
+elif restart_bar; then
     echo "  Bar restarted with fixed eww binary"
+else
+    echo "  WARNING: bar restart failed — run 'bar-ctl start' to load eww-smplos"
 fi
 
 echo "  Installed eww-smplos $(pacman -Q eww-smplos 2>/dev/null | awk '{print $2}')"

@@ -42,6 +42,27 @@ SMPLOS_PATH="${SMPLOS_PATH:-$HOME/.local/share/smplos}"
 SMPLOS_REPO="$SMPLOS_PATH/repo"
 SMPLOS_REPO_URL="https://github.com/smpl-os/smplos.git"
 
+# ── Session env helper ───────────────────────────────────────────────────────
+# We run as root under pkexec, which strips XDG_RUNTIME_DIR, WAYLAND_DISPLAY
+# and HYPRLAND_INSTANCE_SIGNATURE. Anything that talks to the user's live
+# session (hyprctl, eww, systemctl --user) must be routed back into it.
+# Prefer the repo copy — it is always at least as new as the installed one.
+for _cand in "$SMPLOS_REPO/src/shared/lib/smplos-session-env.sh" \
+             "/usr/local/lib/smplos/smplos-session-env.sh"; do
+    if [[ -r "$_cand" ]]; then
+        # shellcheck source=../lib/smplos-session-env.sh
+        source "$_cand"
+        break
+    fi
+done
+unset _cand
+if ! declare -F smplos_have_hyprland >/dev/null 2>&1; then
+    smplos_have_session()  { return 1; }
+    smplos_have_hyprland() { return 1; }
+    smplos_have_user_bus() { return 1; }
+    smplos_run_as_user()   { return 1; }
+fi
+
 # ── Run a command as the invoking user when we're root ───────────────────────
 # git operations against the user-owned smplOS repo must NOT run as root:
 # (a) git 2.35.2+ rejects with "unsafe repository" for cross-uid access, and
@@ -271,6 +292,36 @@ sync_scripts() {
     else
         ok "All $n_total scripts are current"
     fi
+
+    sync_libs
+}
+
+# ── Sync sourceable shell libraries to /usr/local/lib/smplos/ ─────────────────
+# These are libraries, not commands: they must NOT land in /usr/local/bin (they
+# are not executable and cleanup_shadow_bins reasons about bin/ entries).
+sync_libs() {
+    local lib_dir="$SMPLOS_REPO/src/shared/lib"
+    [[ -d "$lib_dir" ]] || return 0
+
+    local dest_dir="/usr/local/lib/smplos"
+    sudo mkdir -p "$dest_dir" 2>/dev/null || { warn "Could not create $dest_dir"; return 0; }
+
+    local lib name n_updated=0
+    for lib in "$lib_dir"/*.sh; do
+        [[ -f "$lib" ]] || continue
+        name=$(basename "$lib")
+        if [[ -f "$dest_dir/$name" ]] && cmp -s "$lib" "$dest_dir/$name"; then
+            continue
+        fi
+        if sudo install -m644 "$lib" "$dest_dir/$name" 2>/dev/null; then
+            ((n_updated++)) || true
+        else
+            warn "Failed to install lib $name (sudo required)"
+        fi
+    done
+
+    [[ $n_updated -gt 0 ]] && ok "$n_updated shell librar(ies) updated"
+    return 0
 }
 
 # ── Sync config files to ~/.config/ ───────────────────────────────────────────
@@ -764,6 +815,13 @@ post_deploy() {
     if hyprctl version &>/dev/null 2>&1; then
         log "Reloading Hyprland config..."
         hyprctl reload 2>/dev/null || true
+    elif smplos_have_hyprland; then
+        # We're root under pkexec with a stripped environment, so the bare
+        # `hyprctl version` probe above always failed with
+        # "HYPRLAND_INSTANCE_SIGNATURE not set!" and this reload never ran.
+        # Route it back into the invoker's session instead.
+        log "Reloading Hyprland config..."
+        smplos_run_as_user hyprctl reload &>/dev/null || true
     fi
 }
 

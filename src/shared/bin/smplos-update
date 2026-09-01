@@ -429,6 +429,12 @@ critical_bundle_prompt_and_apply
 # pkexec strips HYPRLAND_INSTANCE_SIGNATURE, so we probe the invoker's
 # environment (via SMPLOS_INVOKER_UID) to find the running instance instead of
 # relying on our own env — otherwise this step silently skips every time.
+#
+# NOTE: src/shared/lib/smplos-session-env.sh generalises exactly this probe
+# (and adds WAYLAND_DISPLAY / DISPLAY / D-Bus). This block is deliberately kept
+# inline: smplos-update is the elevation entry point for the whole update, and
+# giving it a hard dependency on a file that a not-yet-updated machine may not
+# have on disk would be a worse failure mode than the duplication.
 echo "── Reloading Hyprland ──"
 if ! command -v hyprctl &>/dev/null; then
     echo "  Skipped: hyprctl not installed"
