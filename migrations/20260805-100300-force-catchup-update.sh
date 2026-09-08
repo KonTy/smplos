@@ -59,6 +59,38 @@ if ! curl -fsSL --connect-timeout 5 --max-time 8 https://archlinux.org >/dev/nul
     exit 0
 fi
 
+fix_qemu_gluster_blocker() {
+    if ! pacman -Qq qemu-block-gluster >/dev/null 2>&1; then
+        return 0
+    fi
+
+    echo "  Checking qemu-block-gluster update blocker..."
+    sudo pacman -Sy --noconfirm >/dev/null 2>&1 || {
+        echo "  WARNING: could not refresh package database before QEMU preflight"
+        return 0
+    }
+
+    if ! pacman -Si qemu-common 2>/dev/null | grep -qE '^Conflicts With.*qemu-block-gluster'; then
+        echo "  qemu-block-gluster does not conflict with current qemu-common"
+        return 0
+    fi
+
+    if pacman -Qq qemu-full >/dev/null 2>&1; then
+        echo "  Removing old qemu-full meta-package and obsolete qemu-block-gluster"
+        if sudo pacman -R --noconfirm qemu-full qemu-block-gluster; then
+            sudo pacman -S --needed --noconfirm qemu-full \
+                && echo "  Restored qemu-full meta-package without qemu-block-gluster" \
+                || echo "  WARNING: qemu-full restore failed; concrete QEMU packages remain installed"
+        else
+            echo "  WARNING: could not remove qemu-full/qemu-block-gluster"
+        fi
+    elif sudo pacman -R --noconfirm qemu-block-gluster; then
+        echo "  Removed obsolete qemu-block-gluster"
+    else
+        echo "  WARNING: could not remove qemu-block-gluster"
+    fi
+}
+
 # ── 1. Build fresh ignore list from the just-pulled critical-packages.txt ────
 FRESH_IGNORE_ARR=()
 while IFS= read -r line; do
@@ -78,6 +110,7 @@ echo "  Fresh ignore list: ${FRESH_IGNORE:-<empty>}"
 # ── 2. Second-pass pacman -Syu with the fresh (short) ignore list ────────────
 # This catches every package the parent smplos-update skipped with its
 # stale in-memory ignore list.
+fix_qemu_gluster_blocker
 echo "  Running pacman -Syu with fresh ignore list..."
 _syu_ok=1
 if [[ -n "$FRESH_IGNORE" ]]; then
