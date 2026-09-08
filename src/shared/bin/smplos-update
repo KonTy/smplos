@@ -277,6 +277,42 @@ detect_network() {
     fi
 }
 
+prepare_pacman_transaction() {
+    [[ "$NETWORK_OK" -eq 1 ]] || return 0
+
+    if ! pacman -Qq qemu-block-gluster >/dev/null 2>&1; then
+        return 0
+    fi
+
+    echo "── Pacman preflight ──"
+    if ! sudo pacman -Sy --noconfirm >/dev/null 2>&1; then
+        echo "  WARNING: could not refresh package database for preflight"
+        echo
+        return 0
+    fi
+
+    if ! pacman -Si qemu-common 2>/dev/null | grep -qE '^Conflicts With.*qemu-block-gluster'; then
+        echo "  qemu-block-gluster installed, but current qemu-common does not conflict"
+        echo
+        return 0
+    fi
+
+    echo "  Removing obsolete qemu-block-gluster update blocker"
+    if pacman -Qq qemu-full >/dev/null 2>&1; then
+        echo "  Temporarily removing old qemu-full meta-package"
+        if sudo pacman -R --noconfirm qemu-full qemu-block-gluster; then
+            sudo pacman -S --needed --noconfirm qemu-full \
+                && echo "  Restored qemu-full meta-package without qemu-block-gluster" \
+                || echo "  WARNING: qemu-full restore failed; concrete QEMU packages remain installed"
+        else
+            echo "  WARNING: could not remove qemu-full/qemu-block-gluster"
+        fi
+    elif ! sudo pacman -R --noconfirm qemu-block-gluster; then
+        echo "  WARNING: could not remove qemu-block-gluster"
+    fi
+    echo
+}
+
 # Note: We're already running as root (elevated via pkexec),
 # so sudo calls are just for safety/compatibility. No password needed.
 
@@ -334,6 +370,7 @@ fi
 echo
 
 # ── Step 2: Official repos ───────────────────────────────────────────────────
+prepare_pacman_transaction
 if [[ "$UPDATE_MODE" == "apps" ]]; then
     echo "── Pacman (apps only) ──"
     if [[ "$NETWORK_OK" -eq 0 ]]; then
