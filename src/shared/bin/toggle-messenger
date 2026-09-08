@@ -145,6 +145,24 @@ POS_X=0
 POS_Y=0
 ABS_X=0
 ABS_Y=0
+
+evacuate_workspace_aliens() {
+  local target_addr="${1:-}" cur_ws addrs addr
+  cur_ws=$(hyprctl activeworkspace -j 2>/dev/null | jq -r '.id' 2>/dev/null) || return 0
+  [[ -n "$cur_ws" && "$cur_ws" != "null" ]] || return 0
+
+  addrs=$(hyprctl -j clients 2>/dev/null \
+    | jq -r --arg ws "special:${WS_NAME}" --arg target "$target_addr" \
+      '.[] | select(.workspace.name == $ws and .address != $target) | .address' \
+    2>/dev/null) || return 0
+
+  while IFS= read -r addr; do
+    [[ -n "$addr" ]] || continue
+    hyprctl dispatch "hl.dsp.window.move({window='address:${addr}', workspace='${cur_ws}', silent=false})" \
+      >/dev/null 2>&1 || true
+  done <<< "$addrs"
+}
+
 calc_position() {
   local mon_json cpos cx cy
   cpos=$(hyprctl cursorpos 2>/dev/null); cx=${cpos%,*}; cy=${cpos#*, }
@@ -214,6 +232,7 @@ window_json=$(hyprctl -j clients 2>/dev/null \
 if [[ -n "$window_json" ]]; then
   addr=$(echo "$window_json" | jq -r '.address')
   ws_name=$(echo "$window_json" | jq -r '.workspace.name')
+  evacuate_workspace_aliens "$addr"
 
   if [[ "$ws_name" == special:* ]]; then
     # Hidden → bring back to the current workspace, floating, bottom-right.
@@ -246,6 +265,7 @@ if [[ -n "$window_json" ]]; then
     done
   fi
 else
+  evacuate_workspace_aliens
   # Not running → launch with float rules
   calc_position
   if [[ ${#LAUNCH_CMD[@]} -gt 0 ]]; then

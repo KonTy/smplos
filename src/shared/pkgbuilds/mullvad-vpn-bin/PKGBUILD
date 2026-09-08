@@ -26,7 +26,7 @@
 
 pkgname=mullvad-vpn-bin
 pkgver=2026.3
-pkgrel=1
+pkgrel=2
 pkgdesc='Mullvad VPN client (repackaged from upstream .deb, verified against Mullvad''s PGP key)'
 arch=(x86_64)
 url='https://mullvad.net'
@@ -129,6 +129,16 @@ package() {
     # no rewriting needed.
     bsdtar -xf "$artifact"
     bsdtar -xf data.tar.* -C "$pkgdir"
+
+    # Mullvad 2026.3's Electron Wayland path can create a blank transparent
+    # Hyprland surface under smplOS' global Electron Wayland environment.
+    # Force only Mullvad back through XWayland; the VPN daemon is unaffected.
+    local desktop_file="$pkgdir/usr/share/applications/mullvad-vpn.desktop"
+    if [[ -f "$desktop_file" ]]; then
+        sed -i \
+            's|^Exec=.*|Exec=env ELECTRON_OZONE_PLATFORM_HINT=x11 OZONE_PLATFORM=x11 "/opt/Mullvad VPN/mullvad-vpn" --ozone-platform=x11 %U|' \
+            "$desktop_file"
+    fi
 
     # License lives under /opt/Mullvad VPN/ in the .deb -- symlink it to the
     # conventional location so licensecheck etc. find it.
